@@ -1,3 +1,7 @@
+![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
+![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
 # Lite Server Monitor (LSM)
 
 > Легкий, модульный инструмент для мониторинга и базовой защиты серверов Ubuntu и Debian.
