@@ -3,26 +3,7 @@
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
 ![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
 
-<div align="center">
-  <img src="" alt="Логотип проекта" width="200" height="200">
-</div>
-
 # Lite Server Monitor (LSM)
-
-<div align="center">
-  <img src="https://githubusercontent.com" alt="Логотип проекта" width="120" height="120">
-
-  # Название Вашего Проекта
-
-  _Краткое и емкое описание того, что делает ваш репозиторий (1-2 предложения)._
-
-  <p align="center">
-    <a href="https://github.com"><img src="https://shields.io" alt="Stars"></a>
-    <a href="https://github.com"><img src="https://shields.io" alt="Issues"></a>
-    <a href="https://github.com"><img src="https://shields.io" alt="License"></a>
-  </p>
-</div>
-
 
 > Lightweight, modular monitoring and security toolkit for Ubuntu and Debian servers.
 
