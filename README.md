@@ -10,7 +10,7 @@
 ![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
 <br clear="left"/>
 
-
+---
 
 **Lite Server Monitor (LSM)** is an open-source project designed to monitor Linux servers without requiring Docker, databases, web interfaces, or heavy monitoring platforms.
 
