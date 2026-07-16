@@ -9,6 +9,21 @@
 
 # Lite Server Monitor (LSM)
 
+<div align="center">
+  <img src="https://githubusercontent.com" alt="Логотип проекта" width="120" height="120">
+
+  # Название Вашего Проекта
+
+  _Краткое и емкое описание того, что делает ваш репозиторий (1-2 предложения)._
+
+  <p align="center">
+    <a href="https://github.com"><img src="https://shields.io" alt="Stars"></a>
+    <a href="https://github.com"><img src="https://shields.io" alt="Issues"></a>
+    <a href="https://github.com"><img src="https://shields.io" alt="License"></a>
+  </p>
+</div>
+
+
 > Lightweight, modular monitoring and security toolkit for Ubuntu and Debian servers.
 
 **Lite Server Monitor (LSM)** is an open-source project designed to monitor Linux servers without requiring Docker, databases, web interfaces, or heavy monitoring platforms.
