@@ -172,7 +172,7 @@ Lite Server Monitor **не является заменой**:
 После выхода первой стабильной версии установка будет выполняться одной командой.
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<username>/Lite-Server-Monitor/main/bootstrap.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/AlexeySolomatin/Lite-Server-Monitor/bootstrap.sh)
 ```
 
 Во время установки мастер предложит:
