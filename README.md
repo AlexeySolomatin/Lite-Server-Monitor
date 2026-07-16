@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Logo1.png" alt="Логотип проекта" width="200" height="200">
+  <img src="" alt="Логотип проекта" width="200" height="200">
 </div>
 
 ![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
