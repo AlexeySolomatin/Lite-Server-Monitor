@@ -1,10 +1,23 @@
+<table>
+  <tr>
+    <td width="220" valign="top">
+      <img src="LOGO.png" alt="Lite Server Monitor Logo" width="220" height="220">
+    </td>
+    <td valign="top">
+
+# Lite Server Monitor (LSM)
+
+> Легкий, модульный инструмент для мониторинга и базовой защиты серверов Ubuntu и Debian.
+
 ![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
 ![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
-# Lite Server Monitor (LSM)
+    </td>
+  </tr>
+</table>
 
-> Легкий, модульный инструмент для мониторинга и базовой защиты серверов Ubuntu и Debian.
+---
 
 **Lite Server Monitor (LSM)** — это open-source проект, предназначенный для мониторинга состояния Linux-серверов без использования тяжелых систем мониторинга, баз данных, Docker и веб-интерфейсов.
 
