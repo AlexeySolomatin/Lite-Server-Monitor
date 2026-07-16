@@ -4,11 +4,10 @@
 
 > Lightweight, modular monitoring and security toolkit for Ubuntu and Debian servers.
 
-![Version](https://shields.io)
-![License](https://shields.io)
-![Platform](https://shields.io)
-![Shell](https://shields.io)
-
+![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
+![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
 <br clear="left"/>
 
 ---
