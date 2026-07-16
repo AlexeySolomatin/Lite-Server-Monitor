@@ -1,7 +1,7 @@
 <table>
   <tr>
     <td width="160" valign="top">
-      <img src="LOGO.png" alt="Lite Server Monitor Logo" width="140" height="140">
+      <img src="LOGO.png" alt="Lite Server Monitor Logo" width="180" height="180">
     </td>
     <td valign="top">
 
