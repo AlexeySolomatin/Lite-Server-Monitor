@@ -1,0 +1,7 @@
+lsm version
+lsm install
+lsm update
+lsm uninstall
+lsm doctor
+lsm status
+lsm report
