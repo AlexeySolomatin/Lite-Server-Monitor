@@ -1,3 +1,6 @@
+<div align="center">
+  <img src="Logo1.png" alt="Логотип проекта" width="200" height="200">
+</div>
 ![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
