@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
-main() {
-    log_info "Doctor command is not implemented yet."
+command_doctor() {
+    log_info "Running diagnostics..."
+    log_warn "Not implemented yet."
 }
