@@ -170,7 +170,7 @@ Core components include:
 After the first stable release, installation will require only a single command:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<username>/Lite-Server-Monitor/main/bootstrap.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/AlexeySolomatin/Lite-Server-Monitor/bootstrap.sh)
 ```
 
 The installation wizard will guide you through:
