@@ -1,15 +1,3 @@
-<img src="LOGO.png" alt="Lite Server Monitor Logo" width="140" height="140" align="left" style="margin-right: 20px;">
-
-# Lite Server Monitor (LSM)
-
-> Lightweight, modular monitoring and security toolkit for Ubuntu and Debian servers.
-
-![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
-![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
-<br clear="left"/>
-
 <table>
   <tr>
     <td width="160" valign="top">
@@ -25,23 +13,6 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
 ![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
-
-    </td>
-  </tr>
-</table>
-
----
-
-
-# Lite Server Monitor (LSM)
-
-> Lightweight, modular monitoring and security toolkit for Ubuntu and Debian servers.
-
-![Version](https://img.shields.io/badge/version-0.1.0--alpha-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
-![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
-
     </td>
   </tr>
 </table>
