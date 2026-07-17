@@ -1,31 +1,36 @@
 #!/usr/bin/env bash
 
-wizard_modules() {
+SELECTED_MODULES=()
 
-    clear
+screen_modules() {
 
-    print_header
+    wizard_header
 
-    echo "Monitoring Modules"
+    echo "Modules"
     echo
 
-    INSTALL_CONFIG[disk]="true"
-    INSTALL_CONFIG[smart]="true"
-    INSTALL_CONFIG[raid]="true"
-    INSTALL_CONFIG[temperature]="true"
-    INSTALL_CONFIG[login_monitor]="true"
-    INSTALL_CONFIG[fail2ban]="true"
+    if wizard_yes_no "Install Disk Monitor?"; then
+        SELECTED_MODULES+=("disk")
+    fi
 
-    echo "Disk Monitor     : enabled"
-    echo "SMART Monitor    : enabled"
-    echo "RAID Monitor     : enabled"
-    echo "Temperature      : enabled"
-    echo "Login Monitor    : enabled"
-    echo "Fail2Ban Monitor : enabled"
-    echo
-    echo "All recommended modules will be installed."
-    echo
+    if wizard_yes_no "Install SMART Monitor?"; then
+        SELECTED_MODULES+=("smart")
+    fi
 
-    pause
+    if wizard_yes_no "Install RAID Monitor?"; then
+        SELECTED_MODULES+=("raid")
+    fi
+
+    if wizard_yes_no "Install Temperature Monitor?"; then
+        SELECTED_MODULES+=("temperature")
+    fi
+
+    if wizard_yes_no "Install Login Monitor?"; then
+        SELECTED_MODULES+=("login")
+    fi
+
+    if wizard_yes_no "Install Fail2Ban Monitor?"; then
+        SELECTED_MODULES+=("fail2ban")
+    fi
 
 }
