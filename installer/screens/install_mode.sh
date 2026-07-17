@@ -1,46 +1,31 @@
 #!/usr/bin/env bash
 
-wizard_install_mode() {
+INSTALL_MODE="preset"
 
-    clear
+screen_install_mode() {
 
-    print_header
+    wizard_header
 
-    echo "Installation Mode"
+    echo "Installation mode"
     echo
-    echo "1) Quick Install (Recommended)"
-    echo "2) Custom Install"
-    echo "3) Load Configuration File"
-    echo "0) Exit"
+    echo "1) Quick installation (recommended)"
+    echo "2) Custom installation"
     echo
 
     while true; do
 
-        read -rp "Select an option: " choice
+        read -rp "Select mode [1-2]: " answer
 
-        case "$choice" in
+        case "${answer}" in
 
             1)
-                INSTALL_MODE="quick"
-                return
+                INSTALL_MODE="preset"
+                break
                 ;;
 
             2)
                 INSTALL_MODE="custom"
-                return
-                ;;
-
-            3)
-                INSTALL_MODE="config"
-                return
-                ;;
-
-            0)
-                exit 0
-                ;;
-
-            *)
-                log_warn "Invalid selection."
+                break
                 ;;
 
         esac
