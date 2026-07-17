@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# Notification Configuration Screen
+# -----------------------------------------------------------------------------
 
 NOTIFICATION_METHOD="none"
 
