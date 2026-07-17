@@ -2,29 +2,50 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Package management library
+# Package Management Library
 # -----------------------------------------------------------------------------
 
-[[ -n "${LSM_INSTALLER_PACKAGES_LOADED:-}" ]] && return
-readonly LSM_INSTALLER_PACKAGES_LOADED=1
+[[ -n "${LSM_PACKAGES_LOADED:-}" ]] && return
+readonly LSM_PACKAGES_LOADED=1
+
+APT_UPDATED=false
 
 #
-# Update package cache
+# Execute apt-get command
 #
-update_package_cache() {
+run_apt() {
 
-    log_info "Updating package cache..."
-
-    apt-get update
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get \
+        -y \
+        "$@"
 
 }
 
 #
-# Check whether a package is installed
+# Update package cache (only once)
+#
+update_package_cache() {
+
+    if [[ "${APT_UPDATED}" == "true" ]]; then
+        return 0
+    fi
+
+    log_info "Updating package index..."
+
+    run_apt update
+
+    APT_UPDATED=true
+
+}
+
+#
+# Check whether package is installed
 #
 package_installed() {
 
-    dpkg -s "$1" >/dev/null 2>&1
+    dpkg-query -W -f='${Status}' "$1" 2>/dev/null |
+        grep -q "install ok installed"
 
 }
 
@@ -42,19 +63,6 @@ install_package() {
 
     log_info "Installing package: ${package}"
 
-    apt-get install -y "${package}"
-
-}
-
-#
-# Install multiple packages
-#
-install_packages() {
-
-    local package
-
-    for package in "$@"; do
-        install_package "${package}"
-    done
+    run_apt install "${package}"
 
 }
