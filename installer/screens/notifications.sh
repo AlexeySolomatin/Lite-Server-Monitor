@@ -1,47 +1,43 @@
 #!/usr/bin/env bash
 
-wizard_notifications() {
+NOTIFICATION_METHOD="none"
 
-    clear
+screen_notifications() {
 
-    print_header
+    wizard_header
 
-    echo "Notification Method"
+    echo "Notification method"
     echo
-    echo "1) Telegram"
-    echo "2) Email"
-    echo "3) Telegram + Email"
-    echo "4) No notifications"
+    echo "1) None"
+    echo "2) Telegram"
+    echo "3) Email"
+    echo "4) Telegram + Email"
     echo
 
     while true; do
 
-        read -rp "Select an option: " choice
+        read -rp "Select: " answer
 
-        case "$choice" in
+        case "${answer}" in
 
             1)
-                INSTALL_CONFIG[notifications]="telegram"
-                return
+                NOTIFICATION_METHOD="none"
+                break
                 ;;
 
             2)
-                INSTALL_CONFIG[notifications]="email"
-                return
+                NOTIFICATION_METHOD="telegram"
+                break
                 ;;
 
             3)
-                INSTALL_CONFIG[notifications]="both"
-                return
+                NOTIFICATION_METHOD="email"
+                break
                 ;;
 
             4)
-                INSTALL_CONFIG[notifications]="none"
-                return
-                ;;
-
-            *)
-                log_warn "Invalid selection."
+                NOTIFICATION_METHOD="both"
+                break
                 ;;
 
         esac
