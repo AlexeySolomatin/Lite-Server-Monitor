@@ -2,48 +2,35 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Filesystem Management Library
+# Deployment Library
 # -----------------------------------------------------------------------------
 
-[[ -n "${LSM_FILESYSTEM_LOADED:-}" ]] && return
-readonly LSM_FILESYSTEM_LOADED=1
+[[ -n "${LSM_DEPLOY_LOADED:-}" ]] && return
+readonly LSM_DEPLOY_LOADED=1
 
 #
-# Create directory if it does not exist
+# Create directory
 #
-ensure_directory() {
+deploy_create_directory() {
 
-    local dir="$1"
+    local directory="$1"
     local mode="${2:-755}"
     local owner="${3:-root}"
     local group="${4:-root}"
 
-    if [[ ! -d "${dir}" ]]; then
-        log_info "Creating directory: ${dir}"
-        mkdir -p "${dir}"
+    if [[ ! -d "${directory}" ]]; then
+        log_info "Creating directory: ${directory}"
+        mkdir -p "${directory}"
     fi
 
-    chmod "${mode}" "${dir}"
-    chown "${owner}:${group}" "${dir}"
-}
-
-#
-# Remove directory
-#
-remove_directory() {
-
-    local dir="$1"
-
-    if [[ -d "${dir}" ]]; then
-        log_info "Removing directory: ${dir}"
-        rm -rf "${dir}"
-    fi
+    chmod "${mode}" "${directory}"
+    chown "${owner}:${group}" "${directory}"
 }
 
 #
 # Install file
 #
-install_file() {
+deploy_install_file() {
 
     local source="$1"
     local destination="$2"
@@ -52,7 +39,7 @@ install_file() {
     local group="${5:-root}"
 
     if [[ ! -f "${source}" ]]; then
-        log_error "Source file not found: ${source}"
+        log_error "File not found: ${source}"
         return 1
     fi
 
@@ -63,12 +50,14 @@ install_file() {
         -g "${group}" \
         "${source}" \
         "${destination}"
+
+    log_success "Installed: ${destination}"
 }
 
 #
-# Copy directory recursively
+# Install directory
 #
-copy_directory() {
+deploy_install_directory() {
 
     local source="$1"
     local destination="$2"
@@ -78,45 +67,63 @@ copy_directory() {
         return 1
     fi
 
-    cp -a "${source}" "${destination}"
+    mkdir -p "${destination}"
+    cp -a "${source}/." "${destination}/"
+
+    log_success "Installed directory: ${destination}"
 }
 
 #
-# Backup existing file
+# Backup file
 #
-backup_file() {
+deploy_backup_file() {
 
     local file="$1"
 
     [[ -f "${file}" ]] || return 0
 
-    local backup="${file}.bak.$(date +%Y%m%d%H%M%S)"
+    cp -a "${file}" "${file}.bak"
 
-    log_info "Creating backup: ${backup}"
-
-    cp -a "${file}" "${backup}"
+    log_info "Backup created: ${file}.bak"
 }
 
 #
-# Restore backup
+# Remove file
 #
-restore_backup() {
+deploy_remove_file() {
 
-    local backup="$1"
-    local target="$2"
+    local file="$1"
 
-    [[ -f "${backup}" ]] || return 1
+    [[ -f "${file}" ]] || return 0
 
-    cp -a "${backup}" "${target}"
+    rm -f "${file}"
+
+    log_info "Removed: ${file}"
+}
+
+#
+# Remove directory
+#
+deploy_remove_directory() {
+
+    local directory="$1"
+
+    [[ -d "${directory}" ]] || return 0
+
+    rm -rf "${directory}"
+
+    log_info "Removed directory: ${directory}"
 }
 
 #
 # Create symbolic link
 #
-create_symlink() {
+deploy_create_symlink() {
 
     local source="$1"
-    local target="$2"
+    local destination="$2"
 
-    ln -sfn "${source}" "${target}"
+    ln -sfn "${source}" "${destination}"
+
+    log_info "Created symlink: ${destination}"
 }
