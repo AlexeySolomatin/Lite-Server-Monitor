@@ -8,4 +8,27 @@ step_modules() {
         modules_install "${module}"
     done
 
+    #
+    # Activate all installed services
+    #
+
+    services_daemon_reload
+
+    for module in "${SELECTED_MODULES[@]}"; do
+
+        local module_dir="${LSM_ROOT}/modules/${module}"
+
+        if [[ -f "${module_dir}/manifest.conf" ]]; then
+
+            # shellcheck disable=SC1090
+            source "${module_dir}/manifest.conf"
+
+            for service in "${MODULE_SERVICES[@]}"; do
+                services_enable_and_start "${service}"
+            done
+
+        fi
+
+    done
+
 }
