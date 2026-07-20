@@ -1,0 +1,28 @@
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# Login Monitor Timer
+# -----------------------------------------------------------------------------
+
+[Unit]
+
+Description=Run Lite Server Monitor Login Check
+
+
+[Timer]
+
+OnBootSec=2min
+
+OnUnitActiveSec=1min
+
+AccuracySec=15s
+
+Persistent=true
+
+
+Unit=lsm-login.service
+
+
+[Install]
+
+WantedBy=timers.target
