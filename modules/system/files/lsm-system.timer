@@ -1,0 +1,27 @@
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# System Monitor Timer
+# -----------------------------------------------------------------------------
+
+[Unit]
+Description=Run Lite Server Monitor System Check
+
+
+[Timer]
+
+OnBootSec=5min
+
+OnUnitActiveSec=5min
+
+AccuracySec=30s
+
+Persistent=true
+
+
+Unit=lsm-system.service
+
+
+[Install]
+
+WantedBy=timers.target
