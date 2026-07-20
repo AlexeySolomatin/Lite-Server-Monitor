@@ -8,7 +8,9 @@
 set -Eeuo pipefail
 
 
-CONFIG_FILE="/etc/lsm/config"
+CONFIG_FILE="${NOTIFICATIONS_FILE:-/etc/lsm/notifications.conf}"
+
+SECRETS_FILE="${SECRETS_FILE:-/etc/lsm/secrets.conf}"
 
 
 [[ -f "${CONFIG_FILE}" ]] &&
