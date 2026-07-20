@@ -1,1 +1,29 @@
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# RAID Monitor Service
+# -----------------------------------------------------------------------------
 
+[Unit]
+Description=Lite Server Monitor - RAID Monitor
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
+After=network-online.target
+
+[Service]
+Type=oneshot
+
+ExecStart=/opt/lsm/modules/raid/check_raid.sh
+
+User=root
+Group=root
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lsm /var/log/lsm
+
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
