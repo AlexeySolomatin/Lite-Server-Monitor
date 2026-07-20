@@ -1,0 +1,33 @@
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# Login Monitor Service
+# -----------------------------------------------------------------------------
+
+[Unit]
+
+Description=Lite Server Monitor - Login Monitor
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
+
+
+[Service]
+
+Type=oneshot
+
+ExecStart=/opt/lsm/modules/login/check_login.sh
+
+User=root
+Group=root
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+ProtectSystem=strict
+ProtectHome=true
+
+ReadWritePaths=/var/lib/lsm /var/log/lsm
+
+
+[Install]
+
+WantedBy=multi-user.target
