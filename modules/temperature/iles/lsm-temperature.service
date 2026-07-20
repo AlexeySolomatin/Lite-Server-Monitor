@@ -1,0 +1,28 @@
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# Temperature Monitor Service
+# -----------------------------------------------------------------------------
+
+[Unit]
+Description=Lite Server Monitor - Temperature Monitor
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
+
+[Service]
+Type=oneshot
+
+ExecStart=/opt/lsm/modules/temperature/check_temperature.sh
+
+User=root
+Group=root
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lsm /var/log/lsm
+
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
