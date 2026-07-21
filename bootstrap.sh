@@ -10,6 +10,7 @@ set -Eeuo pipefail
 readonly REPOSITORY_URL="https://github.com/AlexeySolomatin/Lite-Server-Monitor.git"
 
 readonly TEMP_DIR="$(mktemp -d)"
+readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
 cleanup() {
     rm -rf "${TEMP_DIR}"
@@ -22,16 +23,16 @@ echo "Lite Server Monitor Bootstrap"
 echo
 
 #
-# Root
+# Root privileges
 #
 
-if [[ $EUID -ne 0 ]]; then
+if [[ "${EUID}" -ne 0 ]]; then
     echo "ERROR: Please run as root."
     exit 1
 fi
 
 #
-# Git
+# Install git if required
 #
 
 if ! command -v git >/dev/null 2>&1; then
@@ -45,10 +46,10 @@ echo
 echo "Downloading Lite Server Monitor..."
 echo
 
-git clone "${REPOSITORY_URL}" "${TEMP_DIR}"
+git clone "${REPOSITORY_URL}" "${SOURCE_DIR}"
 
 echo
 echo "Starting installer..."
 echo
 
-exec "${TEMP_DIR}/installer/install.sh"
+exec "${SOURCE_DIR}/installer/install.sh"
