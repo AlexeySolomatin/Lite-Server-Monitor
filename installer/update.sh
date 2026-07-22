@@ -7,7 +7,8 @@
 
 set -Eeuo pipefail
 
-readonly LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly LSM_ROOT
 
 main() {
 
