@@ -31,7 +31,8 @@ step_configuration() {
 
     # 3. Если конфигурация уже существует, создаем бэкап
     if [[ -f "${config_file}" ]]; then
-        local backup_file="${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
+        local backup_file
+        backup_file="${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
         log_warn "Existing configuration found. Creating backup: ${backup_file}"
         cp -a "${config_file}" "${backup_file}"
     fi
