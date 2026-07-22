@@ -15,15 +15,16 @@ step_directories() {
 
     src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-    # Создаем системные каталоги
+    # Создаем базовые каталоги
     mkdir -p "${target_dir}"/{bin,commands,installer,lib,modules,templates}
     mkdir -p /etc/lsm/modules
     mkdir -p /var/log/lsm
 
-    # Копируем исходники из временной папки во постоянную /opt/lsm
+    # Копируем все компоненты проекта, включая installer/
     if [[ "${src_dir}" != "${target_dir}" ]]; then
         cp -rf "${src_dir}/bin" "${target_dir}/"
         cp -rf "${src_dir}/commands" "${target_dir}/"
+        cp -rf "${src_dir}/installer" "${target_dir}/"
         cp -rf "${src_dir}/lib" "${target_dir}/"
         cp -rf "${src_dir}/modules" "${target_dir}/"
         cp -rf "${src_dir}/templates" "${target_dir}/" 2>/dev/null || true
@@ -31,6 +32,7 @@ step_directories() {
 
     chmod -R 755 "${target_dir}"
     chmod +x "${target_dir}/bin/lsm" 2>/dev/null || true
+    chmod +x "${target_dir}/installer"/*.sh 2>/dev/null || true
 
     log_success "Directory structure created at ${target_dir}"
 }
