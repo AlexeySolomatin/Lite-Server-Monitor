@@ -125,12 +125,20 @@ mkdir -p "${STATE_DIR}"
         source "${NOTIFY_SCRIPT}"
 
         if [[ -n "${NEW_BANS}" && "${NOTIFY_ON_BAN}" == "true" ]]; then
-            FORMATTED_NEW=$(echo "${NEW_BANS}" | sed 's/^/- /')
+            if [[ -n "${NEW_BANS:-}" ]]; then
+                FORMATTED_NEW="- ${NEW_BANS//$'\n'/$'\n- '}"
+            else
+                FORMATTED_NEW=""
+            fi
             notify "fail2ban" "WARNING" "Зафиксирована новая блокировка IP-адресов:\n${FORMATTED_NEW}"
         fi
 
         if [[ -n "${RECOVERED}" && "${NOTIFY_ON_RECOVERY}" == "true" ]]; then
-            FORMATTED_REC=$(echo "${RECOVERED}" | sed 's/^/- /')
+            if [[ -n "${RECOVERED:-}" ]]; then
+                FORMATTED_REC="- ${RECOVERED//$'\n'/$'\n- '}"
+            else
+                FORMATTED_REC=""
+            fi
             notify "fail2ban" "OK" "Разблокированы IP-адреса (истёк срок бана):\n${FORMATTED_REC}"
         fi
     fi
