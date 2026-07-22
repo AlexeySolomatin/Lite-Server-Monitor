@@ -5,6 +5,25 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/), 
 и проект придерживается [Семантического Интегрирования (SemVer)](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2-alpha] - 2026-07-23
+
+### Added
+- **Interactive Installer Wizard**: Полноценный пошаговый мастер установки (`installer/wizard.sh` и `installer/screens/*`).
+- **Telegram Setup Screen**: Экран ввода Telegram Bot Token и Chat ID (`installer/screens/telegram.sh`).
+- **Dynamic Config Ingestion**: Шаг `04_configuration.sh` теперь автоматически подставляет токен Telegram, параметры SMTP и флаги уведомлений из Wizard в `/etc/lsm/config.conf`.
+- **Selective Module Installation**: Шаг `05_modules.sh` теперь разворачивает только те модули, которые пользователь выбрал в инсталляторе.
+- **TTY Capture**: Захват `/dev/tty` для корректной работы интерактивного ввода при запуске через `curl | bash`.
+
+### Changed
+- **Config Security**: Установлены строгие права доступа `600` на `/etc/lsm/config.conf` для защиты хранимых секретов.
+- **Directory Deployment**: Скопированы файлы `VERSION` и `CHANGELOG.md` в `/opt/lsm` на шаге `03_directories.sh`.
+- **Module Installers**: Унифицирована и стандартизирована подгрузка библиотек ядра во всех инсталляторах модулей с фолбэком на относительные пути.
+
+### Fixed
+- **Version Detection**: Исправлена ошибка `lsm version`, выводившая "Development" вместо реальной версии из-за отсутствия файла `VERSION` в `/opt/lsm`.
+- **Finish Step Error**: Устранена ошибка вызова несуществующей функции `log_step` в `installer/steps/08_finish.sh`.
+- **UPS Screen Flow**: Исправлена логика вызова экрана настройки UPS (`ups.sh`) в `wizard.sh`.
+
 ## [0.1.1-alpha] - 2026-07-22
 
 Первый публичный альфа-релиз модульной системы мониторинга серверов Lite Server Monitor (LSM).
