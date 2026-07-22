@@ -13,14 +13,15 @@ CONFIG_FILE="${NOTIFICATIONS_FILE:-/etc/lsm/notifications.conf}"
 SECRETS_FILE="${SECRETS_FILE:-/etc/lsm/secrets.conf}"
 
 
-[[ -f "${CONFIG_FILE}" ]] &&
+if [[ -f "${CONFIG_FILE}" ]]; then
     # shellcheck source=/dev/null
     source "${CONFIG_FILE}"
+fi
 
-
-[[ -f "${SECRETS_FILE}" ]] &&
+if [[ -f "${SECRETS_FILE}" ]]; then
     # shellcheck source=/dev/null
     source "${SECRETS_FILE}"
+fi
 
 
 
