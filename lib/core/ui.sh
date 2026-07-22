@@ -71,4 +71,4 @@ log_debug() {
     if [[ "${LSM_DEBUG:-0}" == "1" ]]; then
         echo "[${COLOR_CYAN}DEBUG${COLOR_RESET}] $*"
     fi
-fi
+}
