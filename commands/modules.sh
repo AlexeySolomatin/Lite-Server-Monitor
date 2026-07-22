@@ -21,7 +21,7 @@ for module_dir in "${LSM_ROOT}/modules"/*; do
 
     [[ -d "${module_dir}" ]] || continue
 
-    # shellcheck disable=SC1090
+    # shellcheck source=/dev/null
     source "${module_dir}/manifest.conf"
 
     if [[ -d "/opt/lsm/modules/${MODULE_NAME}" ]]; then
