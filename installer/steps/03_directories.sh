@@ -20,7 +20,7 @@ step_directories() {
     mkdir -p /etc/lsm/modules
     mkdir -p /var/log/lsm
 
-    # Копируем все компоненты проекта, включая installer/
+    # Копируем все компоненты проекта
     if [[ "${src_dir}" != "${target_dir}" ]]; then
         cp -rf "${src_dir}/bin" "${target_dir}/"
         cp -rf "${src_dir}/commands" "${target_dir}/"
@@ -28,6 +28,14 @@ step_directories() {
         cp -rf "${src_dir}/lib" "${target_dir}/"
         cp -rf "${src_dir}/modules" "${target_dir}/"
         cp -rf "${src_dir}/templates" "${target_dir}/" 2>/dev/null || true
+        
+        # ⚠️ Копируем корневой файл VERSION (и CHANGELOG, если есть)
+        if [[ -f "${src_dir}/VERSION" ]]; then
+            cp -f "${src_dir}/VERSION" "${target_dir}/VERSION"
+        fi
+        if [[ -f "${src_dir}/CHANGELOG.md" ]]; then
+            cp -f "${src_dir}/CHANGELOG.md" "${target_dir}/CHANGELOG.md" 2>/dev/null || true
+        fi
     fi
 
     chmod -R 755 "${target_dir}"
