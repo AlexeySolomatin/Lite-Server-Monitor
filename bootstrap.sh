@@ -9,7 +9,8 @@ set -Eeuo pipefail
 
 readonly REPOSITORY_URL="https://github.com/AlexeySolomatin/Lite-Server-Monitor.git"
 
-readonly TEMP_DIR="$(mktemp -d)"
+TEMP_DIR="$(mktemp -d)"
+readonly TEMP_DIR
 readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
 cleanup() {
