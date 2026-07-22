@@ -10,15 +10,23 @@ set -Eeuo pipefail
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
 
-# Загрузка библиотек ядра (если они еще не загружены в сессии)
+# Безопасный поиск и подгрузка библиотек ядра
 if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
     source "${LSM_ROOT}/lib/core/common.sh"
+elif [[ -f "${MODULE_DIR}/../../lib/core/common.sh" ]]; then
+    source "${MODULE_DIR}/../../lib/core/common.sh"
 fi
+
 if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
     source "${LSM_ROOT}/lib/core/ui.sh"
+elif [[ -f "${MODULE_DIR}/../../lib/core/ui.sh" ]]; then
+    source "${MODULE_DIR}/../../lib/core/ui.sh"
 fi
+
 if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
     source "${LSM_ROOT}/lib/installer/deploy.sh"
+elif [[ -f "${MODULE_DIR}/../../lib/installer/deploy.sh" ]]; then
+    source "${MODULE_DIR}/../../lib/installer/deploy.sh"
 fi
 
 log_info "Installing RAID monitoring module..."
