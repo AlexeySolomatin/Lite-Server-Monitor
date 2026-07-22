@@ -14,10 +14,12 @@ SECRETS_FILE="${SECRETS_FILE:-/etc/lsm/secrets.conf}"
 
 
 [[ -f "${CONFIG_FILE}" ]] &&
+    # shellcheck source=/dev/null
     source "${CONFIG_FILE}"
 
 
 [[ -f "${SECRETS_FILE}" ]] &&
+    # shellcheck source=/dev/null
     source "${SECRETS_FILE}"
 
 
