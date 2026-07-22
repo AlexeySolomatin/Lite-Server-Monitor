@@ -14,7 +14,10 @@ set -Eeuo pipefail
 
 CONFIG_FILE="/etc/lsm/modules/ups.conf"
 
-[[ -f "${CONFIG_FILE}" ]] && source "${CONFIG_FILE}"
+if [[ -f "${CONFIG_FILE}" ]]; then
+    # shellcheck source=/dev/null
+    source "${CONFIG_FILE}"
+fi
 
 
 #
