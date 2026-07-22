@@ -7,197 +7,135 @@
 
 set -Eeuo pipefail
 
+# Сброс локали
+export LC_ALL=C
+export LANG=C
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 #
-# Configuration
+# Конфигурация
 #
 
 CONFIG_FILE="/etc/lsm/modules/fail2ban.conf"
-
 if [[ -f "${CONFIG_FILE}" ]]; then
     # shellcheck source=/dev/null
     source "${CONFIG_FILE}"
 fi
 
-
 #
-# Defaults
+# Значения по умолчанию
 #
 
 MONITOR_JAILS="${MONITOR_JAILS:-true}"
-
 NOTIFY_ON_BAN="${NOTIFY_ON_BAN:-true}"
 NOTIFY_ON_RECOVERY="${NOTIFY_ON_RECOVERY:-true}"
 
-
-#
-# Paths
-#
-
 STATE_DIR="/var/lib/lsm/state"
-
 STATE_FILE="${STATE_DIR}/fail2ban_bans"
-
 LOCK_FILE="${STATE_DIR}/fail2ban_check.lock"
+NOTIFY_SCRIPT="${PROJECT_ROOT}/lib/notifications/notify.sh"
 
+#
+# Проверки окружения
+#
 
+if ! command -v fail2ban-client &>/dev/null; then
+    echo "SKIP: Утилита 'fail2ban-client' не найдена в системе."
+    exit 0
+fi
+
+if [[ "${EUID}" -ne 0 ]]; then
+    echo "SKIP: Для работы с Fail2Ban требуются права root."
+    exit 0
+fi
+
+# Гарантируем наличие директории ДО открытия файла блокировки
+mkdir -p "${STATE_DIR}"
 
 (
-    #
-    # Prevent parallel execution
-    #
-
+    # Защита от параллельного запуска
     flock -n 200 || exit 0
 
-
-
-    #
-    # Check Fail2Ban availability
-    #
-
-    if ! command -v fail2ban-client >/dev/null 2>&1; then
+    # Проверка отзывчивости демона fail2ban
+    if ! fail2ban-client ping &>/dev/null; then
+        if [[ -f "${NOTIFY_SCRIPT}" ]]; then
+            # shellcheck source=/dev/null
+            source "${NOTIFY_SCRIPT}"
+            notify "fail2ban" "CRITICAL" "Сервис Fail2Ban не запущен или сокет не отвечает!"
+        fi
         exit 0
     fi
 
-
     #
-    # Get active jails
+    # Получение списка активных джейлов
     #
-
     JAILS=$(
         fail2ban-client status 2>/dev/null |
         grep "Jail list" |
         sed 's/.*Jail list://' |
-        tr ',' ' '
+        tr ',' ' ' || true
     )
 
-
-    [[ -z "${JAILS}" ]] && exit 0
-
-
+    if [[ -z "${JAILS}" ]]; then
+        exit 0
+    fi
 
     CURRENT_BANS=""
 
-
     #
-    # Check every jail
+    # Сбор заблокированных IP по всем джейлам
     #
-
     for JAIL in ${JAILS}; do
-
-
-        STATUS=$(
-            fail2ban-client status "${JAIL}" 2>/dev/null || true
-        )
-
+        STATUS=$(fail2ban-client status "${JAIL}" 2>/dev/null || true)
 
         BANNED_IPS=$(
             echo "${STATUS}" |
             grep "Banned IP list" |
             sed 's/.*Banned IP list://' |
-            xargs
+            xargs || true
         )
-
 
         if [[ -n "${BANNED_IPS}" ]]; then
-
-
-            while read -r IP; do
-
+            for IP in ${BANNED_IPS}; do
                 [[ -z "${IP}" ]] && continue
-
                 CURRENT_BANS+="${JAIL}:${IP}"$'\n'
-
-
-            done <<< "${BANNED_IPS}"
-
-
+            done
         fi
-
-
     done
 
-
-
-    #
-    # Compare with previous state
-    #
+    # Подготавливаем отсортированные данные без пустых строк
+    SORTED_CURRENT=$(echo -n "${CURRENT_BANS}" | grep -v '^$' | sort -u || true)
 
     touch "${STATE_FILE}"
+    SORTED_PREVIOUS=$(sort -u "${STATE_FILE}" | grep -v '^$' || true)
 
+    # Поиск новых банов
+    NEW_BANS=$(comm -13 <(echo "${SORTED_PREVIOUS}") <(echo "${SORTED_CURRENT}") || true)
 
-    NEW_BANS=$(
-
-        comm -13 \
-            <(sort "${STATE_FILE}") \
-            <(echo "${CURRENT_BANS}" | sort)
-
-    )
-
+    # Поиск разблокированных IP
+    RECOVERED=$(comm -23 <(echo "${SORTED_PREVIOUS}") <(echo "${SORTED_CURRENT}") || true)
 
     #
-    # New bans
+    # Уведомления через центральный диспетчер
     #
+    if [[ -f "${NOTIFY_SCRIPT}" ]]; then
+        # shellcheck source=/dev/null
+        source "${NOTIFY_SCRIPT}"
 
-    if [[ -n "${NEW_BANS}" ]]; then
-
-
-        if [[ "${NOTIFY_ON_BAN}" == "true" ]]; then
-
-
-            notify_send \
-                "Fail2Ban" \
-                "🚫 New banned addresses:
-${NEW_BANS}" || true
-
-
+        if [[ -n "${NEW_BANS}" && "${NOTIFY_ON_BAN}" == "true" ]]; then
+            FORMATTED_NEW=$(echo "${NEW_BANS}" | sed 's/^/- /')
+            notify "fail2ban" "WARNING" "Зафиксирована новая блокировка IP-адресов:\n${FORMATTED_NEW}"
         fi
 
-
-    fi
-
-
-
-    #
-    # Recovery
-    #
-
-    if [[ "${NOTIFY_ON_RECOVERY}" == "true" ]]; then
-
-
-        RECOVERED=$(
-
-            comm -23 \
-                <(sort "${STATE_FILE}") \
-                <(echo "${CURRENT_BANS}" | sort)
-
-        )
-
-
-        if [[ -n "${RECOVERED}" ]]; then
-
-
-            notify_send \
-                "Fail2Ban" \
-                "✅ Ban list changed, previous bans removed:
-${RECOVERED}" || true
-
-
+        if [[ -n "${RECOVERED}" && "${NOTIFY_ON_RECOVERY}" == "true" ]]; then
+            FORMATTED_REC=$(echo "${RECOVERED}" | sed 's/^/- /')
+            notify "fail2ban" "OK" "Разблокированы IP-адреса (истёк срок бана):\n${FORMATTED_REC}"
         fi
-
-
     fi
 
-
-
-    #
-    # Save current state
-    #
-
-    echo "${CURRENT_BANS}" |
-        sort |
-        sed '/^$/d' \
-        > "${STATE_FILE}"
-
+    # Сохраняем текущий список банов
+    echo "${SORTED_CURRENT}" > "${STATE_FILE}"
 
 ) 200>"${LOCK_FILE}"
