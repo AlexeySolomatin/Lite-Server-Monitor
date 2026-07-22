@@ -41,16 +41,14 @@ for step_script in "${STEPS[@]}"; do
     step_path="${INSTALLER_DIR}/steps/${step_script}"
     if [[ -f "${step_path}" ]]; then
         log_info "Executing step: ${step_script}..."
+        
+        # shellcheck source=/dev/null
         source "${step_path}"
         
-        # Получаем имя функции из имени файла (например, step_packages)
         step_func_name="step_$(echo "${step_script}" | sed -E 's/^[0-9]+_//; s/\.sh$//')"
-        
         if declare -f "${step_func_name}" >/dev/null 2>&1; then
             "${step_func_name}"
         fi
-    else
-        log_warn "Step script not found, skipping: ${step_path}"
     fi
 done
 
