@@ -7,6 +7,13 @@
 
 set -Eeuo pipefail
 
+# Подключаем библиотеки UI и общих функций
+LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/common.sh"; fi
+if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
+
+ui_section "Lite Server Monitor Diagnostic"
+
 echo
 echo "Lite Server Monitor Diagnostic"
 echo "=============================="
