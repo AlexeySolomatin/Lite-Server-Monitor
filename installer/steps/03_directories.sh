@@ -2,7 +2,7 @@
 
 step_directories() {
 
-    log_step "Creating directories"
+    log_info "Creating LSM directory structure..."
 
     deploy_create_directory /etc/lsm
     deploy_create_directory /etc/lsm/modules
