@@ -27,7 +27,7 @@ screen_summary() {
 
     if ! wizard_yes_no "Start installation?"; then
         echo
-        log_warning "Installation cancelled."
+        log_warn "Installation cancelled."
         exit 0
     fi
 
