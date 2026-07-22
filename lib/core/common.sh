@@ -1,104 +1,37 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034
-
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Common initialization library
+# Core Common Variables & Base Environment
 # -----------------------------------------------------------------------------
 
-[[ -n "${LSM_COMMON_LOADED:-}" ]] && return
-readonly LSM_COMMON_LOADED=1
+set -Eeuo pipefail
 
-#
-# Project information
-#
-
-readonly PROJECT_NAME="Lite Server Monitor"
-readonly PROJECT_SHORT_NAME="LSM"
-
-readonly PROJECT_VERSION="0.1.0-dev"
-readonly PROJECT_AUTHOR="Alexey Solomatin"
-readonly PROJECT_LICENSE="MIT"
-
-#
-# Installation paths
-#
-
-readonly INSTALL_DIR="/opt/lsm"
-
-readonly CONFIG_DIR="/etc/lsm"
-
-readonly STATE_DIR="/var/lib/lsm"
-
-readonly LOG_DIR="/var/log/lsm"
-
-readonly RUN_DIR="/run/lsm"
-
-readonly BIN_DIR="/usr/local/bin"
-
-#
-# Internal directories
-#
-
-readonly LIB_DIR="${PROJECT_ROOT}/lib"
-readonly CORE_DIR="${LIB_DIR}/core"
-readonly COMMANDS_DIR="${PROJECT_ROOT}/commands"
-readonly INSTALLER_DIR="${PROJECT_ROOT}/installer"
-readonly MODULES_DIR="${PROJECT_ROOT}/modules"
-readonly TEMPLATES_DIR="${PROJECT_ROOT}/templates"
-
-#
-# Default configuration files
-#
-
-readonly CONFIG_FILE="${CONFIG_DIR}/config.conf"
-readonly MODULES_FILE="${CONFIG_DIR}/modules.conf"
-readonly NOTIFICATIONS_FILE="${CONFIG_DIR}/notifications.conf"
-readonly THRESHOLDS_FILE="${CONFIG_DIR}/thresholds.conf"
-readonly SECRETS_FILE="${CONFIG_DIR}/secrets.conf"
-
-#
-# Load core libraries
-#
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/colors.sh"
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/logging.sh"
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/filesystem.sh"
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/checks.sh"
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/config.sh"
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/ui.sh"
-
-# shellcheck source=/dev/null
-source "${CORE_DIR}/utils.sh"
-
-#
-# Load notification libraries
-#
-
-readonly NOTIFICATIONS_DIR="${LIB_DIR}/notifications"
-
-
-if [[ -d "${NOTIFICATIONS_DIR}" ]]; then
-
-
-    if [[ -f "${NOTIFICATIONS_DIR}/notify.sh" ]]; then
-
-        # shellcheck source=/dev/null
-        source "${NOTIFICATIONS_DIR}/notify.sh"
-
-    fi
-
-
+# Автоопределение корневого каталога проекта, если он еще не передан
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # На два уровня вверх из lib/core -> корень проекта
+    LSM_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 fi
+
+export LSM_ROOT
+export PROJECT_ROOT="${LSM_ROOT}"
+export PROJECT_NAME="Lite Server Monitor"
+export PROJECT_VERSION="1.0.0"
+
+# Пути к основным директориям системы
+export LSM_CONFIG_DIR="${LSM_CONFIG_DIR:-/etc/lsm}"
+export LSM_LOG_DIR="${LSM_LOG_DIR:-/var/log/lsm}"
+export LSM_DATA_DIR="${LSM_DATA_DIR:-/var/lib/lsm}"
+
+# Проверка выполнения от имени root
+check_root() {
+    if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+        if declare -f log_error >/dev/null 2>&1; then
+            log_error "This script must be run as root (or with sudo)."
+        else
+            echo "Error: This script must be run as root." >&2
+        fi
+        exit 1
+    fi
+}
