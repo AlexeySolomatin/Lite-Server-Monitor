@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
+#
+# -----------------------------------------------------------------------------
+# Lite Server Monitor (LSM)
+# CLI Command: Uninstall Wrapper
+# -----------------------------------------------------------------------------
 
-command_uninstall() {
+set -Eeuo pipefail
 
-    log_info "Starting uninstall..."
-    log_warn "Not implemented yet."
-
-}
+LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+exec bash "${LSM_ROOT}/installer/uninstall.sh" "$@"
