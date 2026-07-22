@@ -42,11 +42,13 @@ require_command() {
 # Check operating system
 #
 get_os_id() {
+    # shellcheck source=/dev/null
     source /etc/os-release
     echo "${ID}"
 }
 
 get_os_version() {
+    # shellcheck source=/dev/null
     source /etc/os-release
     echo "${VERSION_ID}"
 }
