@@ -5,6 +5,12 @@
 # Wizard Common Functions
 # -----------------------------------------------------------------------------
 
+wizard_init_tty() {
+    if [[ ! -t 0 ]] && [[ -c /dev/tty ]]; then
+        exec < /dev/tty
+    fi
+}
+
 wizard_header() {
 
     clear
