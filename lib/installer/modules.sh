@@ -52,7 +52,7 @@ modules_install() {
     local module_dir="${LSM_MODULES_DIR}/${module}"
 
     if [[ -f "${module_dir}/manifest.conf" ]]; then
-        # shellcheck disable=SC1090
+        # shellcheck source=/dev/null
         source "${module_dir}/manifest.conf"
     fi
 
