@@ -1,33 +1,37 @@
 # Changelog
 
-All notable changes to the **Lite Server Monitor (LSM)** project will be documented in this file.
+Все заметные изменения в проекте **Lite Server Monitor (LSM)** документируются в этом файле.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/), 
+и проект придерживается [Семантического Интегрирования (SemVer)](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-07-22
+## [0.1.1-alpha] - 2026-07-22
+
+Первый публичный альфа-релиз модульной системы мониторинга серверов Lite Server Monitor (LSM).
 
 ### Added
-- **Core CLI Executable**: `bin/lsm` entry point supporting commands: `status`, `report`, `install`, `update`, `uninstall`, and `help`.
-- **Global Symlink Installation**: Automatic creation of `/usr/local/bin/lsm` during step 07.
-- **Monitoring Modules**: Complete installers and systemd timer integration for:
-  - `system` (CPU, RAM, Disk, Load Average monitoring)
-  - `raid` (MDADM & Hardware RAID status checks)
-  - `smart` (S.M.A.R.T. disk drive diagnostics)
-  - `temperature` (CPU & motherboard hardware sensors)
-  - `ups` (Uninterruptible Power Supply status)
-- **Core Libraries**:
-  - `lib/core/common.sh` for environment detection and root checking.
-  - `lib/core/ui.sh` for ANSI formatted visual outputs and header banners (`ui_banner`).
-  - `lib/installer/deploy.sh` for safe file copying, permissions management, and symlinking.
 
-### Fixed
-- Fixed function name mismatch in package manager step (`packages_update_cache` -> `update_package_cache`).
-- Resolved undefined `templates_install` command in `04_configuration.sh` with automatic `.bak` backups for existing configs.
-- Fixed `ui_banner` missing function error in `installer/install.sh` and `installer/uninstall.sh`.
-- Added fallback logic for `PROJECT_ROOT` and `LSM_ROOT` paths when running scripts from non-standard working directories.
-- Updated placeholder scripts in `commands/` to functional execution wrappers.
+#### 🚀 Архитектура и Мастер установки (`installer/`)
+- **Пошаговый инсталлятор (`installer/install.sh`)**: последовательное выполнение 8 шагов развертывания с обработкой ошибок (`set -Eeuo pipefail`).
+- **Проверка окружения (`01_environment.sh`)**: валидация прав root, совместимости ОС, версии Bash (>= 5.0), наличия APT, архитектуры (x86_64, aarch64), объема RAM (>= 512MB) и свободного места на диске (>= 1GB).
+- **Библиотека деплоя (`lib/installer/deploy.sh`)**: безопасная установка файлов и создание директорий с автоматическим выставлением прав доступа (`chmod`) и владельцев (`chown`).
 
-### Security
-- Restricted permissions on default configuration files (`640` for `/etc/lsm/config.conf` and module settings).
-- Enforced strict `root` access controls across all installation and maintenance workflows.
+#### 🛠️ Центральное ядро и CLI (`lib/core/`, `bin/`)
+- **Утилита CLI (`lsm`)**: интерфейс командной строки для управления системой, проверки текущего статуса (`lsm status`) и ручного вызова модулей.
+- **Ядро системы (`common.sh`, `ui.sh`)**: форматированный логирование вывода (INFO, SUCCESS, WARN, ERROR) и базовые вспомогательные функции.
+- **Центральный диспетчер уведомлений (`lib/notifications/notify.sh`)**: отправка оповещений с поддержкой уровней (`OK`, `WARNING`, `CRITICAL`), генерацией подробных отчетов и контролем смены состояний.
+
+#### 📊 Модули мониторинга (`modules/`)
+- **`system`**: отслеживание ресурсов сервера — CPU Load Average, использования RAM через `/proc/meminfo` и заполнения корневого раздела `/`.
+- **`smart`**: контроль исправности и показателей SMART для накопителей.
+- **`ups`**: отслеживание состояния ИБП через `apcupsd` (`apcaccess`) — контроль работы от сети/батареи, уровня заряда и остаточного времени работы с уведомлением при смене статуса.
+- **`temperature`**: мониторинг температурных показателей аппаратных компонентов.
+- **`disk`**: анализ состояния дисковых накопителей и точек монтирования.
+- **`raid`**: проверка целостности и статуса программных/аппаратных RAID-массивов.
+- **`fail2ban`**: контроль службы защиты от брутфорса и метрик заблокированных IP.
+- **`login`**: отслеживание активностей входа пользователей и событий авторизации.
+
+#### ⚙️ Интеграция с системой и безопасность
+- **Systemd интеграция**: автоматическая регистрация, перезагрузка конфигурации (`daemon-reload`) и активация таймеров (`.timer`) и сервисов (`.service`) для автономного запуска проверок.
+- **Защита от параллельного запуска**: использование файловых блокировок (`flock`) и хранение состояний в `/var/lib/lsm/state/`.
+- **Конфигурация (`/etc/lsm/modules/`)**: безопасное развертывание файлов настроек на основе шаблонов без перезаписи существующих пользовательских конфигов.
