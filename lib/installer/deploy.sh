@@ -2,128 +2,78 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Deployment Library
+# Installer Deployment Helpers
 # -----------------------------------------------------------------------------
 
-[[ -n "${LSM_DEPLOY_LOADED:-}" ]] && return
-readonly LSM_DEPLOY_LOADED=1
+set -Eeuo pipefail
 
-#
-# Create directory
-#
+# Создание директории с установкой прав и владельца
 deploy_create_directory() {
-
-    local directory="$1"
+    local target_dir="$1"
     local mode="${2:-755}"
     local owner="${3:-root}"
     local group="${4:-root}"
 
-    if [[ ! -d "${directory}" ]]; then
-        log_info "Creating directory: ${directory}"
-        mkdir -p "${directory}"
-    fi
+    log_debug "Creating directory: ${target_dir} (mode: ${mode}, owner: ${owner}:${group})"
 
-    chmod "${mode}" "${directory}"
-    chown "${owner}:${group}" "${directory}"
+    mkdir -p "${target_dir}"
+    chmod "${mode}" "${target_dir}"
+    chown "${owner}:${group}" "${target_dir}"
 }
 
-#
-# Install file
-#
+# Установка/копирование файла с заданными правами и владельцем
 deploy_install_file() {
-
-    local source="$1"
-    local destination="$2"
+    local source_file="$1"
+    local target_file="$2"
     local mode="${3:-644}"
     local owner="${4:-root}"
     local group="${5:-root}"
 
-    if [[ ! -f "${source}" ]]; then
-        log_error "File not found: ${source}"
+    if [[ ! -f "${source_file}" ]]; then
+        log_error "Source file does not exist: ${source_file}"
         return 1
     fi
 
-    install \
-        -D \
-        -m "${mode}" \
-        -o "${owner}" \
-        -g "${group}" \
-        "${source}" \
-        "${destination}"
+    local target_dir
+    target_dir="$(dirname "${target_file}")"
 
-    log_success "Installed: ${destination}"
-}
-
-#
-# Install directory
-#
-deploy_install_directory() {
-
-    local source="$1"
-    local destination="$2"
-
-    if [[ ! -d "${source}" ]]; then
-        log_error "Directory not found: ${source}"
-        return 1
+    if [[ ! -d "${target_dir}" ]]; then
+        deploy_create_directory "${target_dir}" "755" "${owner}" "${group}"
     fi
 
-    mkdir -p "${destination}"
-    cp -a "${source}/." "${destination}/"
+    log_debug "Installing file: ${source_file} -> ${target_file} (mode: ${mode})"
 
-    log_success "Installed directory: ${destination}"
+    cp -f "${source_file}" "${target_file}"
+    chmod "${mode}" "${target_file}"
+    chown "${owner}:${group}" "${target_file}"
 }
 
-#
-# Backup file
-#
-deploy_backup_file() {
-
-    local file="$1"
-
-    [[ -f "${file}" ]] || return 0
-
-    cp -a "${file}" "${file}.bak"
-
-    log_info "Backup created: ${file}.bak"
-}
-
-#
-# Remove file
-#
-deploy_remove_file() {
-
-    local file="$1"
-
-    [[ -f "${file}" ]] || return 0
-
-    rm -f "${file}"
-
-    log_info "Removed: ${file}"
-}
-
-#
-# Remove directory
-#
-deploy_remove_directory() {
-
-    local directory="$1"
-
-    [[ -d "${directory}" ]] || return 0
-
-    rm -rf "${directory}"
-
-    log_info "Removed directory: ${directory}"
-}
-
-#
-# Create symbolic link
-#
+# Создание символической ссылки
 deploy_create_symlink() {
+    local source_path="$1"
+    local target_link="$2"
 
-    local source="$1"
-    local destination="$2"
+    if [[ ! -e "${source_path}" ]]; then
+        log_warn "Target for symlink does not exist yet: ${source_path}"
+    fi
 
-    ln -sfn "${source}" "${destination}"
+    log_debug "Creating symlink: ${target_link} -> ${source_path}"
 
-    log_info "Created symlink: ${destination}"
+    local link_dir
+    link_dir="$(dirname "${target_link}")"
+    if [[ ! -d "${link_dir}" ]]; then
+        deploy_create_directory "${link_dir}" "755" "root" "root"
+    fi
+
+    ln -sf "${source_path}" "${target_link}"
+}
+
+# Безопасное удаление файла или симлинка
+deploy_remove_file() {
+    local target_file="$1"
+
+    if [[ -f "${target_file}" || -L "${target_file}" ]]; then
+        log_debug "Removing file or symlink: ${target_file}"
+        rm -f "${target_file}"
+    fi
 }
