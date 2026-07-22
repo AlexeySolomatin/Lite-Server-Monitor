@@ -11,9 +11,12 @@ step_modules() {
     log_info "Installing enabled monitoring modules..."
 
     local modules=(
-        "system"
+        "disk"
+        "fail2ban"
+        "login"
         "raid"
         "smart"
+        "system"
         "temperature"
         "ups"
     )
