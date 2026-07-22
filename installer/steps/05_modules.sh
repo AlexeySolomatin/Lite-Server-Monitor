@@ -20,7 +20,7 @@ step_modules() {
 
         if [[ -f "${module_dir}/manifest.conf" ]]; then
 
-            # shellcheck disable=SC1090
+            # shellcheck source=/dev/null
             source "${module_dir}/manifest.conf"
 
             for service in "${MODULE_SERVICES[@]}"; do
