@@ -2,76 +2,60 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Main Installer
+# Master Installation Script
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
-LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly LSM_ROOT
+# Вычисляем корень инсталлятора
+INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LSM_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
+export LSM_ROOT
 
-# -----------------------------------------------------------------------------
-# Core Libraries
-# -----------------------------------------------------------------------------
-
-source "${LSM_ROOT}/lib/core/colors.sh"
-source "${LSM_ROOT}/lib/core/logging.sh"
+# Загрузка core-библиотек
 source "${LSM_ROOT}/lib/core/common.sh"
-source "${LSM_ROOT}/lib/core/checks.sh"
-source "${LSM_ROOT}/lib/core/config.sh"
-source "${LSM_ROOT}/lib/core/filesystem.sh"
 source "${LSM_ROOT}/lib/core/ui.sh"
-source "${LSM_ROOT}/lib/core/utils.sh"
-
-# -----------------------------------------------------------------------------
-# Installer Libraries
-# -----------------------------------------------------------------------------
-
-source "${LSM_ROOT}/lib/installer/packages.sh"
 source "${LSM_ROOT}/lib/installer/deploy.sh"
-source "${LSM_ROOT}/lib/installer/services.sh"
-source "${LSM_ROOT}/lib/installer/permissions.sh"
-source "${LSM_ROOT}/lib/installer/modules.sh"
+source "${LSM_ROOT}/lib/installer/packages.sh"
 
-# -----------------------------------------------------------------------------
-# Wizard
-# -----------------------------------------------------------------------------
+# Проверка прав Root
+check_root
 
-source "${LSM_ROOT}/installer/wizard.sh"
+# Отображение баннера
+ui_banner
 
-# -----------------------------------------------------------------------------
-# Installation Steps
-# -----------------------------------------------------------------------------
+log_info "Starting Lite Server Monitor (LSM) v${PROJECT_VERSION} installation..."
 
-source "${LSM_ROOT}/installer/steps/01_environment.sh"
-source "${LSM_ROOT}/installer/steps/02_packages.sh"
-source "${LSM_ROOT}/installer/steps/03_directories.sh"
-source "${LSM_ROOT}/installer/steps/04_configuration.sh"
-source "${LSM_ROOT}/installer/steps/05_modules.sh"
-source "${LSM_ROOT}/installer/steps/06_services.sh"
-source "${LSM_ROOT}/installer/steps/07_permissions.sh"
-source "${LSM_ROOT}/installer/steps/08_finish.sh"
+# Запуск шагов установки
+STEPS=(
+    "01_system_check.sh"
+    "02_packages.sh"
+    "03_directories.sh"
+    "04_configuration.sh"
+    "05_modules.sh"
+    "06_services.sh"
+    "07_permissions.sh"
+)
 
-# -----------------------------------------------------------------------------
-# Main
-# -----------------------------------------------------------------------------
+for step_script in "${STEPS[@]}"; do
+    step_path="${INSTALLER_DIR}/steps/${step_script}"
+    if [[ -f "${step_path}" ]]; then
+        log_info "Executing step: ${step_script}..."
+        source "${step_path}"
+        
+        # Получаем имя функции из имени файла (например, step_packages)
+        step_func_name="step_$(echo "${step_script}" | sed -E 's/^[0-9]+_//; s/\.sh$//')"
+        
+        if declare -f "${step_func_name}" >/dev/null 2>&1; then
+            "${step_func_name}"
+        fi
+    else
+        log_warn "Step script not found, skipping: ${step_path}"
+    fi
+done
 
-main() {
+# Создание симлинка бинарника для глобального доступа
+deploy_create_symlink "${LSM_ROOT}/bin/lsm" "/usr/local/bin/lsm"
 
-    ui_banner
-
-    step_environment
-
-    run_install_wizard
-
-    step_packages
-    step_directories
-    step_configuration
-    step_modules
-    step_services
-    step_permissions
-    step_finish
-
-}
-
-main "$@"
+log_success "Lite Server Monitor installation completed successfully!"
+log_info "Run 'lsm help' to see available commands."
