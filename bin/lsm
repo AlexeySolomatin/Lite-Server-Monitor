@@ -2,86 +2,41 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Main CLI Entry Point
+# Main CLI Executable
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
-#
-# Root directory
-#
+# Определение рабочей директории
+LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+export LSM_ROOT
 
-readonly LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Подключение базовых библиотек
+if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
+    source "${LSM_ROOT}/lib/core/common.sh"
+fi
 
-#
-# Core libraries
-#
+if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
+    source "${LSM_ROOT}/lib/core/ui.sh"
+fi
 
-source "${LSM_ROOT}/lib/core/colors.sh"
-source "${LSM_ROOT}/lib/core/logging.sh"
-source "${LSM_ROOT}/lib/core/common.sh"
-
-#
-# Parse command
-#
-
+# Извлечение команды и оставшихся аргументов
 COMMAND="${1:-help}"
-
 if [[ $# -gt 0 ]]; then
     shift
 fi
 
-#
-# Execute command
-#
+COMMAND_SCRIPT="${LSM_ROOT}/commands/${COMMAND}.sh"
 
-case "${COMMAND}" in
-
-    install)
-        source "${LSM_ROOT}/installer/install.sh"
-        ;;
-
-    uninstall)
-        source "${LSM_ROOT}/installer/uninstall.sh"
-        ;;
-
-    update)
-        source "${LSM_ROOT}/installer/update.sh"
-        ;;
-
-    status)
-        source "${LSM_ROOT}/commands/status.sh"
-        ;;
-
-    report)
-        source "${LSM_ROOT}/commands/report.sh"
-        ;;
-
-    doctor)
-        source "${LSM_ROOT}/commands/doctor.sh"
-        ;;
-
-    modules)
-        source "${LSM_ROOT}/commands/modules.sh"
-        ;;
-
-    config)
-        source "${LSM_ROOT}/commands/config.sh"
-        ;;
-
-    version)
-        source "${LSM_ROOT}/commands/version.sh"
-        ;;
-
-    help|-h|--help)
-        source "${LSM_ROOT}/commands/help.sh"
-        ;;
-
-    *)
-        log_error "Unknown command: ${COMMAND}"
-        echo
-        source "${LSM_ROOT}/commands/help.sh"
-        exit 1
-        ;;
-
-esac
+# Маршрутизация выполнения
+if [[ -f "${COMMAND_SCRIPT}" ]]; then
+    exec bash "${COMMAND_SCRIPT}" "$@"
+else
+    if declare -f log_error >/dev/null 2>&1; then
+        log_error "Unknown command: '${COMMAND}'"
+    else
+        echo "Error: Unknown command '${COMMAND}'" >&2
+    fi
+    echo ""
+    exec bash "${LSM_ROOT}/commands/help.sh"
+fi
