@@ -1,12 +1,7 @@
 [Unit]
-Description=Lite Server Monitor (LSM) - Служба проверки Docker
-After=docker.service
+Description=Lite Server Monitor - Docker Check Service
+After=network.target docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/lsm/modules/docker/files/check_docker.sh
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
+ExecStart=/opt/lsm/modules/docker/check_docker.sh
