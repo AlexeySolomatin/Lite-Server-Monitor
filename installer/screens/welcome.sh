@@ -5,15 +5,21 @@
 # Welcome Screen
 # -----------------------------------------------------------------------------
 
-screen_welcome() {
+set -Eeuo pipefail
 
+screen_welcome() {
     wizard_header
 
-    echo "Welcome to Lite Server Monitor."
+    echo -e "${CLR_BOLD}Добро пожаловать в мастер установки Lite Server Monitor (LSM)!${CLR_RESET}"
     echo
-    echo "This wizard will guide you through the installation."
+    echo "LSM — легкая и модульная система мониторинга состояния сервера,"
+    echo "дисков, системных ресурсов и служб безопасности."
+    echo
+    echo "Мастер поможет вам за несколько шагов:"
+    echo -e "  ${CLR_CYAN}•${CLR_RESET} Выбрать подходящий режим установки (быстрый или настраиваемый)"
+    echo -e "  ${CLR_CYAN}•${CLR_RESET} Включить нужные модули проверки (Disk, SMART, System, Login, Fail2ban и др.)"
+    echo -e "  ${CLR_CYAN}•${CLR_RESET} Настроить каналы отправки алертов (Telegram / Email)"
     echo
 
     wizard_pause
-
 }
