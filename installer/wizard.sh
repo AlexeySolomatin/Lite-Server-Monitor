@@ -1,86 +1,145 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Installation Wizard Master Controller
-# -----------------------------------------------------------------------------
+# Главный мастер установки
+# Путь: installer/wizard.sh
+# ==============================================================================
+
 
 set -Eeuo pipefail
 
-# Определение корня LSM при автономном запуске
-LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-readonly LSM_SCREENS_DIR="${LSM_ROOT}/installer/screens"
 
-# Безопасная подгрузка экранов UI
+LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+readonly SCREEN_DIR="${LSM_ROOT}/installer/screens"
+
+
 load_screen() {
-    local screen_file="${1}"
-    if [[ -f "${screen_file}" ]]; then
+
+    local file="$1"
+
+    if [[ -f "${file}" ]]; then
         # shellcheck source=/dev/null
-        source "${screen_file}"
+        source "${file}"
     else
-        echo -e "\e[31m[ERROR]\e[0m Required wizard screen file not found: ${screen_file}" >&2
+        log_error "Не найден экран мастера: ${file}"
         exit 1
     fi
+
 }
 
-load_screen "${LSM_SCREENS_DIR}/common.sh"
-load_screen "${LSM_SCREENS_DIR}/welcome.sh"
-load_screen "${LSM_SCREENS_DIR}/install_mode.sh"
-load_screen "${LSM_SCREENS_DIR}/modules.sh"
-load_screen "${LSM_SCREENS_DIR}/notifications.sh"
-load_screen "${LSM_SCREENS_DIR}/telegram.sh"
-load_screen "${LSM_SCREENS_DIR}/smtp.sh"
-load_screen "${LSM_SCREENS_DIR}/ups.sh"
-load_screen "${LSM_SCREENS_DIR}/summary.sh"
+
+load_screens() {
+
+    local screens=(
+        common.sh
+        welcome.sh
+        install_mode.sh
+        modules.sh
+        notifications.sh
+        telegram.sh
+        smtp.sh
+        ups.sh
+        summary.sh
+    )
+
+
+    for screen in "${screens[@]}"; do
+        load_screen "${SCREEN_DIR}/${screen}"
+    done
+
+}
+
+
+wizard_defaults() {
+
+
+    INSTALL_MODE="preset"
+
+    NOTIFICATION_METHOD="none"
+
+    SELECTED_MODULES=(
+        system
+        disk
+        smart
+        temperature
+    )
+
+
+}
+
 
 run_install_wizard() {
+
+
+    wizard_defaults
+
+    load_screens
+
+
     wizard_init_tty
 
+
     screen_welcome
+
     screen_install_mode
 
-    # Если выбрана быстрая установка — ставим стандартный пресет модулей
-    if [[ "${INSTALL_MODE:-preset}" == "preset" ]]; then
-        SELECTED_MODULES=()
+
+    case "${INSTALL_MODE}" in
+
+        preset)
+
+            SELECTED_MODULES=(
+                system
+                disk
+                smart
+                temperature
+                login
+            )
+
+        ;;
 
 
-while read -r module; do
+        custom)
 
-    if [[ "$(registry_default "${module}")" == "yes" ]]; then
+            screen_modules
 
-        SELECTED_MODULES+=("${module}")
+        ;;
 
-    fi
 
-done < <(registry_list)
-    else
-        screen_modules
-    fi
+    esac
+
 
     screen_notifications
 
-    # Настройка Telegram
-    if [[ "${NOTIFICATION_METHOD:-none}" == "telegram" ]] || [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
+
+    if [[ "${NOTIFICATION_METHOD}" == "telegram" ||
+          "${NOTIFICATION_METHOD}" == "both" ]]; then
+
         screen_telegram
+
     fi
 
-    # Настройка SMTP
-    if [[ "${NOTIFICATION_METHOD:-none}" == "email" ]] || [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
+
+
+    if [[ "${NOTIFICATION_METHOD}" == "email" ||
+          "${NOTIFICATION_METHOD}" == "both" ]]; then
+
         screen_smtp
+
     fi
 
-    # Настройка UPS
+
     screen_ups
+
 
     screen_summary
 
-    # Экспортируем переменные в окружение процесса установки
-    export INSTALL_MODE NOTIFICATION_METHOD
-    export TG_BOT_TOKEN TG_CHAT_ID
-    export EMAIL_ENABLED SMTP_PROFILE SMTP_SERVER SMTP_PORT SMTP_TLS SMTP_USER SMTP_PASS SMTP_FROM ALERT_EMAIL
-    export INSTALL_UPS UPS_PROFILE
-    
-    # Сохраняем и экспортируем массив выбранных модулей
+
+    export INSTALL_MODE
+    export NOTIFICATION_METHOD
     export SELECTED_MODULES
+
     export SELECTED_MODULES_STR="${SELECTED_MODULES[*]}"
+
 }
