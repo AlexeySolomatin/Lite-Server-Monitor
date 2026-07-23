@@ -1,40 +1,290 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Modules Command
-# -----------------------------------------------------------------------------
+# Управление модулями мониторинга
+# Путь: commands/modules.sh
+# ==============================================================================
+
 
 set -Eeuo pipefail
 
-source "${LSM_ROOT}/lib/core/logging.sh"
 
-echo
-echo "Lite Server Monitor Modules"
-echo "==========================="
-echo
 
-printf "%-15s %-12s %s\n" "Module" "Status" "Description"
-printf "%-15s %-12s %s\n" "------" "------" "-----------"
+#
+# Определение корня проекта
+#
 
-for module_dir in "${LSM_ROOT}/modules"/*; do
+LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-    [[ -d "${module_dir}" ]] || continue
+export LSM_ROOT
 
-    # shellcheck source=/dev/null
-    source "${module_dir}/manifest.conf"
 
-    if [[ -d "/opt/lsm/modules/${MODULE_NAME}" ]]; then
-        STATUS="Installed"
-    else
-        STATUS="Available"
-    fi
 
-    printf "%-15s %-12s %s\n" \
-        "${MODULE_NAME}" \
-        "${STATUS}" \
-        "${MODULE_DESCRIPTION}"
+#
+# Загрузка библиотек
+#
 
-done
+# shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/core/common.sh"
 
-echo
+# shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/installer/registry.sh"
+
+# shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/installer/modules.sh"
+
+
+
+#
+# Помощь
+#
+
+modules_help()
+{
+
+cat <<EOF
+
+Использование:
+
+  lsm modules <команда> [модуль]
+
+
+Команды:
+
+  list
+      Список установленных модулей
+
+
+  available
+      Список доступных модулей
+
+
+  install <module>
+      Установить модуль
+
+
+  remove <module>
+      Удалить модуль
+
+
+  status <module>
+      Показать состояние модуля
+
+
+  enable <module>
+      Включить модуль
+
+
+  disable <module>
+      Отключить модуль
+
+
+Примеры:
+
+  lsm modules list
+
+  lsm modules available
+
+  lsm modules install docker
+
+  lsm modules status smart
+
+
+EOF
+
+}
+
+
+
+#
+# Список доступных модулей
+#
+
+modules_available()
+{
+
+    echo
+
+    echo "Доступные модули:"
+
+    echo
+
+
+    modules_list
+
+
+    echo
+
+}
+
+
+
+#
+# Основной обработчик
+#
+
+main()
+{
+
+
+    local command="${1:-help}"
+
+    local module="${2:-}"
+
+
+
+    case "${command}" in
+
+
+        list)
+
+
+            echo
+
+            echo "Установленные модули:"
+
+            echo
+
+
+            modules_installed_list
+
+        ;;
+
+
+
+        available)
+
+
+            modules_available
+
+        ;;
+
+
+
+        install)
+
+
+            if [[ -z "${module}" ]]; then
+
+                log_error \
+                "Не указан модуль для установки."
+
+                exit 1
+
+            fi
+
+
+            modules_install "${module}"
+
+        ;;
+
+
+
+        remove)
+
+
+            if [[ -z "${module}" ]]; then
+
+                log_error \
+                "Не указан модуль для удаления."
+
+                exit 1
+
+            fi
+
+
+            modules_remove "${module}"
+
+        ;;
+
+
+
+        status)
+
+
+            if [[ -z "${module}" ]]; then
+
+                log_error \
+                "Не указан модуль."
+
+                exit 1
+
+            fi
+
+
+            modules_status "${module}"
+
+        ;;
+
+
+
+        enable)
+
+
+            if [[ -z "${module}" ]]; then
+
+                log_error \
+                "Не указан модуль."
+
+                exit 1
+
+            fi
+
+
+            modules_enable "${module}"
+
+        ;;
+
+
+
+        disable)
+
+
+            if [[ -z "${module}" ]]; then
+
+                log_error \
+                "Не указан модуль."
+
+                exit 1
+
+            fi
+
+
+            modules_disable "${module}"
+
+        ;;
+
+
+
+        help|-h|--help)
+
+
+            modules_help
+
+        ;;
+
+
+
+        *)
+
+
+            log_error \
+            "Неизвестная команда: ${command}"
+
+
+            modules_help
+
+
+            exit 1
+
+        ;;
+
+
+    esac
+
+
+}
+
+
+
+main "$@"
