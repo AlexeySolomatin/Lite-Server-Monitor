@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-#
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Экран выбора модулей
+# Экран выбора модулей установки
 # Путь: installer/screens/modules.sh
 # ==============================================================================
 
@@ -10,8 +9,10 @@
 set -Eeuo pipefail
 
 
-SELECTED_MODULES=()
 
+#
+# Выбор модулей
+#
 
 screen_modules()
 {
@@ -20,18 +21,35 @@ screen_modules()
 
 
     echo -e "${CLR_BOLD}Выбор модулей мониторинга:${CLR_RESET}"
+
+    echo "Выберите компоненты, которые необходимо установить."
     echo
+
 
 
     SELECTED_MODULES=()
 
 
+
+    #
+    # Проверка registry
+    #
+
     if ! declare -f registry_list >/dev/null 2>&1; then
 
-        echo "Ошибка: реестр модулей недоступен."
+        echo -e "${CLR_RED}Ошибка: registry модулей недоступен.${CLR_RESET}"
+
         return 1
 
     fi
+
+
+
+    #
+    # Получение списка модулей
+    #
+
+    local modules=()
 
 
     while read -r module
@@ -40,55 +58,121 @@ screen_modules()
         [[ -z "${module}" ]] && continue
 
 
-        local title="${module}"
+        #
+        # core не показываем пользователю
+        #
 
-
-        local manifest="${LSM_ROOT}/modules/${module}/manifest.conf"
-
-
-        if [[ -f "${manifest}" ]]; then
-
-            # shellcheck source=/dev/null
-            source "${manifest}"
-
-            title="${MODULE_TITLE:-${module}}"
-
+        if [[ "${module}" == "core" ]]; then
+            continue
         fi
 
 
-        if wizard_yes_no \
-            "Установить модуль '${title}'?" \
-            "y"
-        then
-
-            SELECTED_MODULES+=("${module}")
-
-        fi
+        modules+=("${module}")
 
 
     done < <(registry_list)
 
 
 
-    if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
+    #
+    # Отображение выбора
+    #
+
+    for module in "${modules[@]}"
+    do
 
 
-        echo
-        echo -e "${CLR_YELLOW}Не выбраны модули.${CLR_RESET}"
+        local title
+        local description
+        local default
 
 
-        if registry_exists "system"; then
+        title="${LSM_MODULE_TITLE[$module]:-${module}}"
 
-            SELECTED_MODULES+=("system")
+        description="${LSM_MODULE_DESCRIPTION[$module]:-}"
 
-            echo "Добавлен базовый модуль system."
+        default="${LSM_MODULE_DEFAULT[$module]:-no}"
+
+
+
+        local answer="n"
+
+
+        if [[ "${default}" == "yes" ]]; then
+
+            answer="y"
 
         fi
 
 
-        wizard_pause
+
+        if wizard_yes_no \
+            "${title}: ${description}" \
+            "${answer}"; then
+
+
+            SELECTED_MODULES+=("${module}")
+
+
+        fi
+
+
+    done
+
+
+
+    #
+    # Минимальная проверка
+    #
+
+    if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
+
+
+        echo
+
+        echo -e \
+        "${CLR_YELLOW}Не выбран ни один модуль.${CLR_RESET}"
+
+
+        if wizard_yes_no \
+            "Добавить базовый системный мониторинг?" \
+            "y"; then
+
+
+            SELECTED_MODULES+=("system")
+
+
+        fi
+
 
     fi
 
+
+
+    #
+    # Вывод результата
+    #
+
+    echo
+
+    echo -e "${CLR_BOLD}Выбраны модули:${CLR_RESET}"
+
+
+    if [[ ${#SELECTED_MODULES[@]} -gt 0 ]]; then
+
+
+        printf " - %s\n" "${SELECTED_MODULES[@]}"
+
+
+    else
+
+
+        echo "нет"
+
+
+    fi
+
+
+    wizard_pause
 
 }
