@@ -54,6 +54,9 @@ fi
 
 registry_load_default
 
+log_info "Зарегистрированные модули:"
+registry_list
+
 if [[ "${NON_INTERACTIVE}" == "false" ]]; then    
     if [[ -f "${INSTALLER_DIR}/wizard.sh" ]]; then
         # shellcheck source=/dev/null
