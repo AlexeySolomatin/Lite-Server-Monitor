@@ -1,6 +1,5 @@
 [Unit]
 Description=Lite Server Monitor (LSM) - Таймер ежедневного отчета
-Documentation=https://github.com/
 
 [Timer]
 # Запуск каждый день в 08:00:00
