@@ -15,7 +15,7 @@ readonly LSM_MODULE_VALIDATOR_LOADED=1
 
 
 #
-# Определение путей
+# Пути
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -25,7 +25,7 @@ LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
 #
-# Проверка обязательных файлов
+# Проверка структуры модуля
 #
 
 module_validate_files()
@@ -36,12 +36,13 @@ module_validate_files()
     local module_dir="${LSM_MODULES_DIR}/${module}"
 
 
+
     local required_files=(
         "manifest.conf"
         "install.sh"
         "uninstall.sh"
-        "README.md"
     )
+
 
 
     for file in "${required_files[@]}"
@@ -49,9 +50,50 @@ module_validate_files()
 
         if [[ ! -f "${module_dir}/${file}" ]]; then
 
-            log_error "Модуль ${module}: отсутствует файл ${file}"
+            log_error \
+                "Модуль ${module}: отсутствует файл ${file}"
 
             return 1
+
+        fi
+
+    done
+
+
+
+    return 0
+
+}
+
+
+
+#
+# Проверка исполняемых файлов
+#
+
+module_validate_permissions()
+{
+
+    local module="$1"
+
+    local module_dir="${LSM_MODULES_DIR}/${module}"
+
+
+
+    local scripts=(
+        "install.sh"
+        "uninstall.sh"
+    )
+
+
+
+    for script in "${scripts[@]}"
+    do
+
+        if [[ ! -x "${module_dir}/${script}" ]]; then
+
+            log_warn \
+                "Модуль ${module}: ${script} не имеет права выполнения"
 
         fi
 
@@ -74,9 +116,11 @@ module_validate_manifest()
     local module="$1"
 
 
+
     if ! module_load_manifest "${module}"; then
 
-        log_error "Модуль ${module}: manifest.conf не загружен"
+        log_error \
+            "Модуль ${module}: manifest.conf не загружен"
 
         return 1
 
@@ -88,19 +132,10 @@ module_validate_manifest()
 
 
 
-    if [[ -z "${MODULE_ID:-}" ]]; then
+    if [[ "${MODULE_ID:-}" != "${module}" ]]; then
 
-        log_error "Модуль ${module}: отсутствует MODULE_ID"
-
-        errors=$((errors+1))
-
-    fi
-
-
-
-    if [[ -z "${MODULE_NAME:-}" ]]; then
-
-        log_error "Модуль ${module}: отсутствует MODULE_NAME"
+        log_error \
+            "Модуль ${module}: MODULE_ID (${MODULE_ID:-empty}) не совпадает с именем каталога"
 
         errors=$((errors+1))
 
@@ -108,33 +143,28 @@ module_validate_manifest()
 
 
 
-    if [[ -z "${MODULE_DESCRIPTION:-}" ]]; then
-
-        log_error "Модуль ${module}: отсутствует MODULE_DESCRIPTION"
-
-        errors=$((errors+1))
-
-    fi
-
-
-
-    if [[ -z "${MODULE_VERSION:-}" ]]; then
-
-        log_error "Модуль ${module}: отсутствует MODULE_VERSION"
-
-        errors=$((errors+1))
-
-    fi
+    local required_fields=(
+        "MODULE_NAME"
+        "MODULE_DESCRIPTION"
+        "MODULE_VERSION"
+        "MODULE_CATEGORY"
+    )
 
 
 
-    if [[ -z "${MODULE_CATEGORY:-}" ]]; then
+    for field in "${required_fields[@]}"
+    do
 
-        log_error "Модуль ${module}: отсутствует MODULE_CATEGORY"
+        if [[ -z "${!field:-}" ]]; then
 
-        errors=$((errors+1))
+            log_error \
+                "Модуль ${module}: отсутствует ${field}"
 
-    fi
+            errors=$((errors+1))
+
+        fi
+
+    done
 
 
 
@@ -145,13 +175,14 @@ module_validate_manifest()
 
 
 #
-# Проверка зависимостей модулей
+# Проверка зависимостей
 #
 
 module_validate_dependencies()
 {
 
     local module="$1"
+
 
 
     module_load_manifest "${module}" || return 1
@@ -189,7 +220,7 @@ module_validate_dependencies()
 
 
 #
-# Полная проверка модуля
+# Полная проверка
 #
 
 module_validate_all()
@@ -198,21 +229,25 @@ module_validate_all()
     local module="$1"
 
 
-    log_info "Проверка модуля: ${module}"
+
+    log_info \
+        "Проверка модуля: ${module}"
 
 
 
     module_validate_files "${module}" || return 1
 
-
     module_validate_manifest "${module}" || return 1
-
 
     module_validate_dependencies "${module}" || return 1
 
+    module_validate_permissions "${module}" || return 1
 
 
-    log_success "Модуль ${module} прошел проверку"
+
+    log_success \
+        "Модуль ${module} корректен"
+
 
 
     return 0
@@ -229,6 +264,7 @@ module_validate_all_modules()
 {
 
     local failed=0
+
 
 
     while read -r module
@@ -250,7 +286,8 @@ module_validate_all_modules()
 
     if [[ "${failed}" -gt 0 ]]; then
 
-        log_error "Найдено проблемных модулей: ${failed}"
+        log_error \
+            "Найдено проблемных модулей: ${failed}"
 
         return 1
 
@@ -258,7 +295,9 @@ module_validate_all_modules()
 
 
 
-    log_success "Все модули корректны"
+    log_success \
+        "Все модули прошли проверку"
+
 
     return 0
 
