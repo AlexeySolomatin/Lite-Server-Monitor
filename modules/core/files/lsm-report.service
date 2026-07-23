@@ -1,0 +1,13 @@
+[Unit]
+Description=Lite Server Monitor (LSM) - Служба ежедневного отчета
+Documentation=https://github.com/
+After=network.target local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/lsm/bin/lsm report --send
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
