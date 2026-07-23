@@ -11,64 +11,126 @@
 readonly LSM_INSTALL_REGISTRY_LOADED=1
 
 
-declare -a LSM_COMPONENTS=()
+declare -A LSM_COMPONENTS
 
 
 #
-# Регистрация компонента
+# Добавление компонента
 #
 registry_add() {
 
     local name="$1"
+    local description="$2"
+    local default="$3"
 
-    LSM_COMPONENTS+=("${name}")
+    LSM_COMPONENTS["${name}"]="${description}|${default}"
 
 }
 
 
 #
-# Получить список компонентов
+# Получение всех компонентов
 #
 registry_list() {
 
-    printf "%s\n" "${LSM_COMPONENTS[@]}"
+    printf "%s\n" "${!LSM_COMPONENTS[@]}"
 
 }
 
 
 #
-# Проверка компонента
+# Проверка существования
 #
 registry_exists() {
 
     local name="$1"
 
-    for component in "${LSM_COMPONENTS[@]}"; do
-
-        [[ "${component}" == "${name}" ]] && return 0
-
-    done
-
-    return 1
+    [[ -n "${LSM_COMPONENTS[$name]:-}" ]]
 
 }
 
 
 #
-# Загрузка стандартного набора
+# Получить описание
+#
+registry_description() {
+
+    local name="$1"
+
+    echo "${LSM_COMPONENTS[$name]%%|*}"
+
+}
+
+
+#
+# Получить значение default
+#
+registry_default() {
+
+    local name="$1"
+
+    echo "${LSM_COMPONENTS[$name]##*|}"
+
+}
+
+
+#
+# Стандартный набор компонентов
 #
 registry_load_default() {
 
 
-    registry_add "system"
-    registry_add "disk"
-    registry_add "smart"
-    registry_add "temperature"
-    registry_add "raid"
-    registry_add "ups"
-    registry_add "login"
-    registry_add "fail2ban"
-    registry_add "core"
+    registry_add \
+        "system" \
+        "Мониторинг состояния системы" \
+        "yes"
 
+
+    registry_add \
+        "disk" \
+        "Контроль дискового пространства" \
+        "yes"
+
+
+    registry_add \
+        "smart" \
+        "SMART контроль накопителей" \
+        "yes"
+
+
+    registry_add \
+        "temperature" \
+        "Контроль температуры оборудования" \
+        "yes"
+
+
+    registry_add \
+        "raid" \
+        "Контроль RAID массива" \
+        "yes"
+
+
+    registry_add \
+        "ups" \
+        "Мониторинг UPS" \
+        "no"
+
+
+    registry_add \
+        "login" \
+        "Контроль входов пользователей" \
+        "yes"
+
+
+    registry_add \
+        "fail2ban" \
+        "Контроль защиты Fail2Ban" \
+        "yes"
+
+
+    registry_add \
+        "core" \
+        "Служебные функции LSM" \
+        "yes"
 
 }
