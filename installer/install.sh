@@ -65,7 +65,18 @@ else
     # Базовые значения для неинтерактивного режима
     INSTALL_MODE="${INSTALL_MODE:-full}"
     NOTIFICATION_METHOD="${NOTIFICATION_METHOD:-none}"
-    SELECTED_MODULES=("system" "smart" "temperature" "ups")
+    SELECTED_MODULES=()
+
+
+while read -r module; do
+
+    if [[ "$(registry_default "${module}")" == "yes" ]]; then
+
+        SELECTED_MODULES+=("${module}")
+
+    fi
+
+done < <(registry_list)
 fi
 
 # 7. Заголовок и логирование
