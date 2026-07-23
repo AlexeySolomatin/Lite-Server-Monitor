@@ -1,0 +1,14 @@
+[Unit]
+Description=Lite Server Monitor (LSM) - Таймер ежедневного отчета
+Documentation=https://github.com/
+
+[Timer]
+# Запуск каждый день в 08:00:00
+OnCalendar=*-*-* 08:00:00
+# Если сервер был выключен во время срабатывания, выпустить отчет сразу после загрузки
+Persistent=true
+# Случайная задержка до 5 минут
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
