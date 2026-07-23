@@ -9,25 +9,16 @@
 set -Eeuo pipefail
 
 
-
 [[ -n "${LSM_INSTALL_REGISTRY_LOADED:-}" ]] && return 0
 readonly LSM_INSTALL_REGISTRY_LOADED=1
 
 
-
-#
-# Пути
-#
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
-
-#
-# Хранилище
-#
 
 declare -A LSM_MODULE_NAME
 declare -A LSM_MODULE_DESCRIPTION
@@ -37,8 +28,22 @@ declare -A LSM_MODULE_DEPENDENCIES
 declare -A LSM_MODULE_DEFAULT
 
 
-
 declare -a LSM_MODULES=()
+
+
+
+#
+# Проверка регистрации
+#
+
+registry_exists()
+{
+
+    local module="$1"
+
+    [[ -v "LSM_MODULE_NAME[$module]" ]]
+
+}
 
 
 
@@ -56,10 +61,18 @@ registry_add()
 
 
 
+    if registry_exists "${module}"; then
+
+        return 0
+
+    fi
+
+
+
     if ! module_has_manifest "${module}"; then
 
         log_warn \
-            "Модуль ${module}: отсутствует manifest.conf"
+        "Модуль ${module}: отсутствует manifest.conf"
 
         return 1
 
@@ -67,7 +80,14 @@ registry_add()
 
 
 
-    module_load_manifest "${module}"
+    if ! module_load_manifest "${module}"; then
+
+        log_error \
+        "Модуль ${module}: ошибка загрузки manifest"
+
+        return 1
+
+    fi
 
 
 
@@ -87,18 +107,34 @@ registry_add()
 
     LSM_MODULE_DEFAULT["${module}"]="${MODULE_DEFAULT:-no}"
 
+
 }
 
 
 
 #
-# Сканирование модулей
+# Сканирование всех модулей
 #
 
 registry_scan()
 {
 
     LSM_MODULES=()
+
+    unset LSM_MODULE_NAME
+    unset LSM_MODULE_DESCRIPTION
+    unset LSM_MODULE_VERSION
+    unset LSM_MODULE_CATEGORY
+    unset LSM_MODULE_DEPENDENCIES
+    unset LSM_MODULE_DEFAULT
+
+
+    declare -gA LSM_MODULE_NAME
+    declare -gA LSM_MODULE_DESCRIPTION
+    declare -gA LSM_MODULE_VERSION
+    declare -gA LSM_MODULE_CATEGORY
+    declare -gA LSM_MODULE_DEPENDENCIES
+    declare -gA LSM_MODULE_DEFAULT
 
 
 
@@ -111,29 +147,23 @@ registry_scan()
 
         [[ -z "${module}" ]] && continue
 
-
         registry_add "${module}"
 
 
     done < <(
-        {
-            find "${LSM_MODULES_DIR}" \
-                -mindepth 1 \
-                -maxdepth 1 \
-                -type d \
-                -printf "%f\n" \
-                2>/dev/null || true
 
-        } | sort
+        find "${LSM_MODULES_DIR}" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type d \
+        -printf "%f\n" \
+        2>/dev/null | sort
+
     )
 
 }
 
 
-
-#
-# Загрузка реестра
-#
 
 registry_load_default()
 {
@@ -145,23 +175,7 @@ registry_load_default()
 
 
 #
-# Проверка существования
-#
-
-registry_exists()
-{
-
-    local module="$1"
-
-
-    [[ -n "${LSM_MODULE_NAME[$module]:-}" ]]
-
-}
-
-
-
-#
-# Список модулей
+# Список
 #
 
 registry_list()
@@ -183,16 +197,10 @@ registry_info()
     local module="$1"
 
 
-
-    if ! registry_exists "${module}"; then
-
-        return 1
-
-    fi
+    registry_exists "${module}" || return 1
 
 
-
-    cat <<EOF
+cat <<EOF
 
 Модуль: ${module}
 
@@ -209,7 +217,7 @@ ${LSM_MODULE_CATEGORY[$module]}
 ${LSM_MODULE_VERSION[$module]}
 
 Зависимости:
-${LSM_MODULE_DEPENDENCIES[$module]}
+${LSM_MODULE_DEPENDENCIES[$module]:-нет}
 
 По умолчанию:
 ${LSM_MODULE_DEFAULT[$module]}
@@ -221,44 +229,67 @@ EOF
 
 
 #
-# Получение зависимостей
+# Зависимости
 #
 
 registry_dependencies()
 {
 
-    local module="$1"
-
-
-    echo "${LSM_MODULE_DEPENDENCIES[$module]:-}"
+    echo "${LSM_MODULE_DEPENDENCIES[$1]:-}"
 
 }
 
 
 
 #
-# Формирование порядка установки
+# Проверка зависимостей
+#
+
+registry_check_dependencies()
+{
+
+    local module="$1"
+
+
+    registry_exists "${module}" || return 1
+
+
+
+    for dep in $(registry_dependencies "${module}")
+    do
+
+        if ! registry_exists "${dep}"; then
+
+            log_error \
+            "Модуль ${module}: отсутствует зависимость ${dep}"
+
+            return 1
+
+        fi
+
+    done
+
+
+}
+
+
+
+#
+# Resolver порядка установки
 #
 
 registry_resolve_order()
 {
 
-    local requested=("$@")
-
-
     local result=()
 
 
-
-    for module in "${requested[@]}"
+    for module in "$@"
     do
 
-        registry_resolve_module \
-            "${module}" \
-            result
+        registry_resolve_module "${module}" result
 
     done
-
 
 
     printf "%s\n" "${result[@]}"
@@ -266,10 +297,6 @@ registry_resolve_order()
 }
 
 
-
-#
-# Рекурсивный resolver
-#
 
 registry_resolve_module()
 {
@@ -289,18 +316,21 @@ registry_resolve_module()
 
 
 
-    local deps
+    if ! registry_exists "${module}"; then
 
-    deps=$(registry_dependencies "${module}")
+        log_error \
+        "Модуль ${module} отсутствует в registry"
+
+        return 1
+
+    fi
 
 
 
-    for dep in ${deps}
+    for dep in $(registry_dependencies "${module}")
     do
 
-        registry_resolve_module \
-            "${dep}" \
-            output
+        registry_resolve_module "${dep}" output
 
     done
 
