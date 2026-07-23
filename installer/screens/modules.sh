@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034
 #
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
 # Экран выбора модулей
 # Путь: installer/screens/modules.sh
-# -----------------------------------------------------------------------------
+# ==============================================================================
+
 
 set -Eeuo pipefail
 
@@ -13,52 +13,52 @@ set -Eeuo pipefail
 SELECTED_MODULES=()
 
 
-#
-# Выбор модулей через реестр
-#
-screen_modules() {
+screen_modules()
+{
 
     wizard_header
 
 
-    echo -e "${CLR_BOLD}Выбор модулей для установки:${CLR_RESET}"
-    echo "Настройте состав системы мониторинга."
+    echo -e "${CLR_BOLD}Выбор модулей мониторинга:${CLR_RESET}"
     echo
 
 
     SELECTED_MODULES=()
 
 
-    while read -r module; do
+    if ! declare -f registry_list >/dev/null 2>&1; then
 
+        echo "Ошибка: реестр модулей недоступен."
+        return 1
+
+    fi
+
+
+    while read -r module
+    do
 
         [[ -z "${module}" ]] && continue
 
 
-        local description
-        local default
+        local title="${module}"
 
 
-        description="$(registry_description "${module}")"
-        default="$(registry_default "${module}")"
+        local manifest="${LSM_ROOT}/modules/${module}/manifest.conf"
 
 
-        # Служебный модуль ядра не выбирается вручную
-        if [[ "${module}" == "core" ]]; then
-            continue
-        fi
+        if [[ -f "${manifest}" ]]; then
 
+            # shellcheck source=/dev/null
+            source "${manifest}"
 
-        local answer="n"
+            title="${MODULE_TITLE:-${module}}"
 
-        if [[ "${default}" == "yes" ]]; then
-            answer="y"
         fi
 
 
         if wizard_yes_no \
-            "Установить модуль ${module}: ${description}?" \
-            "${answer}"
+            "Установить модуль '${title}'?" \
+            "y"
         then
 
             SELECTED_MODULES+=("${module}")
@@ -66,25 +66,22 @@ screen_modules() {
         fi
 
 
-    done < <(registry_list | sort)
+    done < <(registry_list)
 
 
 
-    #
-    # Защита от пустой установки
-    #
     if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
 
 
         echo
-        echo -e "${CLR_YELLOW}Не выбран ни один модуль.${CLR_RESET}"
+        echo -e "${CLR_YELLOW}Не выбраны модули.${CLR_RESET}"
 
 
         if registry_exists "system"; then
 
-            echo "Добавлен базовый модуль system."
-
             SELECTED_MODULES+=("system")
+
+            echo "Добавлен базовый модуль system."
 
         fi
 
@@ -92,5 +89,6 @@ screen_modules() {
         wizard_pause
 
     fi
+
 
 }
