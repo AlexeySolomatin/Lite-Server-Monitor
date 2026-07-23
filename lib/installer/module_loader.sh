@@ -10,17 +10,13 @@
 set -Eeuo pipefail
 
 
-#
-# Защита от повторной загрузки
-#
-
 [[ -n "${LSM_MODULE_LOADER_LOADED:-}" ]] && return 0
 readonly LSM_MODULE_LOADER_LOADED=1
 
 
 
 #
-# Пути
+# Paths
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -32,7 +28,7 @@ export LSM_MODULES_DIR
 
 
 #
-# Метаданные текущего модуля
+# Module metadata storage
 #
 
 MODULE_ID=""
@@ -40,19 +36,13 @@ MODULE_NAME=""
 MODULE_DESCRIPTION=""
 MODULE_VERSION=""
 MODULE_CATEGORY=""
-
 MODULE_DEPENDENCIES=""
 MODULE_DEFAULT=""
-
-MODULE_REQUIRED_PACKAGES=""
-
-MODULE_SERVICE=""
-MODULE_TIMER=""
 
 
 
 #
-# Инициализация
+# Initialize loader
 #
 
 module_loader_init()
@@ -61,7 +51,7 @@ module_loader_init()
     if [[ ! -d "${LSM_MODULES_DIR}" ]]; then
 
         log_warn \
-        "Каталог модулей отсутствует: ${LSM_MODULES_DIR}"
+            "Каталог модулей отсутствует: ${LSM_MODULES_DIR}"
 
         return 1
 
@@ -75,41 +65,26 @@ module_loader_init()
 
 
 #
-# Очистка текущих данных
+# Clear metadata
 #
 
 module_clear_metadata()
 {
 
     MODULE_ID=""
-
     MODULE_NAME=""
-
     MODULE_DESCRIPTION=""
-
     MODULE_VERSION=""
-
     MODULE_CATEGORY=""
-
-
     MODULE_DEPENDENCIES=""
-
     MODULE_DEFAULT=""
-
-
-    MODULE_REQUIRED_PACKAGES=""
-
-
-    MODULE_SERVICE=""
-
-    MODULE_TIMER=""
 
 }
 
 
 
 #
-# Загрузка manifest.conf
+# Load manifest
 #
 
 module_load_manifest()
@@ -118,11 +93,7 @@ module_load_manifest()
     local module="${1:-}"
 
 
-    if [[ -z "${module}" ]]; then
-
-        return 1
-
-    fi
+    [[ -n "${module}" ]] || return 1
 
 
 
@@ -132,8 +103,8 @@ module_load_manifest()
 
     if [[ ! -f "${manifest}" ]]; then
 
-        log_error \
-        "Manifest отсутствует: ${module}"
+        log_warn \
+            "Manifest отсутствует: ${module}"
 
         return 1
 
@@ -150,18 +121,6 @@ module_load_manifest()
 
 
 
-    #
-    # Проверка ID
-    #
-
-    if [[ -z "${MODULE_ID}" ]]; then
-
-        MODULE_ID="${module}"
-
-    fi
-
-
-
     return 0
 
 }
@@ -169,7 +128,7 @@ module_load_manifest()
 
 
 #
-# Список модулей
+# List available modules
 #
 
 module_loader_list()
@@ -179,20 +138,22 @@ module_loader_list()
 
 
 
-    find "${LSM_MODULES_DIR}" \
-        -mindepth 1 \
-        -maxdepth 1 \
-        -type d \
-        -printf "%f\n" \
-        2>/dev/null \
-        | sort
+    {
+        find "${LSM_MODULES_DIR}" \
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            -printf "%f\n" \
+            2>/dev/null || true
+
+    } | sort
 
 }
 
 
 
 #
-# Получение имени
+# Metadata getters
 #
 
 module_get_name()
@@ -203,7 +164,7 @@ module_get_name()
 
     if module_load_manifest "${module}"; then
 
-        echo "${MODULE_NAME}"
+        echo "${MODULE_NAME:-${module}}"
 
     else
 
@@ -215,10 +176,6 @@ module_get_name()
 
 
 
-#
-# Получение описания
-#
-
 module_get_description()
 {
 
@@ -227,45 +184,13 @@ module_get_description()
 
     if module_load_manifest "${module}"; then
 
-        echo "${MODULE_DESCRIPTION}"
-
-    else
-
-        echo ""
+        echo "${MODULE_DESCRIPTION:-}"
 
     fi
 
 }
 
 
-
-#
-# Получение категории
-#
-
-module_get_category()
-{
-
-    local module="$1"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_CATEGORY}"
-
-    else
-
-        echo "unknown"
-
-    fi
-
-}
-
-
-
-#
-# Получение версии
-#
 
 module_get_version()
 {
@@ -275,11 +200,39 @@ module_get_version()
 
     if module_load_manifest "${module}"; then
 
-        echo "${MODULE_VERSION}"
+        echo "${MODULE_VERSION:-unknown}"
 
-    else
+    fi
 
-        echo "unknown"
+}
+
+
+
+module_get_category()
+{
+
+    local module="$1"
+
+
+    if module_load_manifest "${module}"; then
+
+        echo "${MODULE_CATEGORY:-unknown}"
+
+    fi
+
+}
+
+
+
+module_get_dependencies()
+{
+
+    local module="$1"
+
+
+    if module_load_manifest "${module}"; then
+
+        echo "${MODULE_DEPENDENCIES:-}"
 
     fi
 
@@ -288,7 +241,7 @@ module_get_version()
 
 
 #
-# Проверка manifest
+# Manifest existence
 #
 
 module_has_manifest()
@@ -304,7 +257,49 @@ module_has_manifest()
 
 
 #
-# Полная информация
+# Basic module validation
+#
+
+module_validate()
+{
+
+    local module="$1"
+
+
+    local module_dir="${LSM_MODULES_DIR}/${module}"
+
+
+
+    if [[ ! -f "${module_dir}/manifest.conf" ]]; then
+
+        log_error \
+            "Модуль ${module}: отсутствует manifest.conf"
+
+        return 1
+
+    fi
+
+
+
+    if [[ ! -f "${module_dir}/install.sh" ]]; then
+
+        log_error \
+            "Модуль ${module}: отсутствует install.sh"
+
+        return 1
+
+    fi
+
+
+
+    return 0
+
+}
+
+
+
+#
+# Full module information
 #
 
 module_info()
@@ -313,11 +308,17 @@ module_info()
     local module="$1"
 
 
-    module_load_manifest "${module}" || return 1
+
+    if ! module_load_manifest "${module}"; then
+
+        return 1
+
+    fi
 
 
 
 cat <<EOF
+
 ID:
 ${MODULE_ID}
 
@@ -336,27 +337,9 @@ ${MODULE_CATEGORY}
 Зависимости:
 ${MODULE_DEPENDENCIES:-нет}
 
-Пакеты:
-${MODULE_REQUIRED_PACKAGES:-нет}
+По умолчанию:
+${MODULE_DEFAULT:-no}
 
-Service:
-${MODULE_SERVICE:-нет}
-
-Timer:
-${MODULE_TIMER:-нет}
 EOF
-
-}
-
-
-
-#
-# API для TUI
-#
-
-module_get_metadata()
-{
-
-    module_info "$1"
 
 }
