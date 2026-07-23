@@ -1,157 +1,129 @@
 #!/usr/bin/env bash
+#
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Реестр компонентов установки
 # Путь: lib/installer/registry.sh
 # ==============================================================================
 
-set -Eeuo pipefail
 
 [[ -n "${LSM_INSTALL_REGISTRY_LOADED:-}" ]] && return 0
 readonly LSM_INSTALL_REGISTRY_LOADED=1
 
 
-declare -A LSM_COMPONENTS_NAME
-declare -A LSM_COMPONENTS_DESC
-declare -A LSM_COMPONENTS_ENABLED
+LSM_MODULES_REGISTRY=()
+
+
+LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
 #
-# Добавление компонента
+# Регистрация модуля
 #
-registry_add() {
+registry_add()
+{
+    local module="$1"
 
-    local id="$1"
-    local name="${2:-$1}"
-    local description="${3:-}"
+    [[ -n "${module}" ]] || return 1
 
-    LSM_COMPONENTS_NAME["${id}"]="${name}"
-    LSM_COMPONENTS_DESC["${id}"]="${description}"
-    LSM_COMPONENTS_ENABLED["${id}"]="false"
-
+    LSM_MODULES_REGISTRY+=("${module}")
 }
 
 
 #
-# Получить список компонентов
+# Загрузка всех модулей из каталога
 #
-registry_list() {
+registry_scan()
+{
+    LSM_MODULES_REGISTRY=()
 
-    printf "%s\n" "${!LSM_COMPONENTS_NAME[@]}"
 
+    if [[ ! -d "${LSM_MODULES_DIR}" ]]; then
+        return 0
+    fi
+
+
+    while read -r module; do
+
+        registry_add "${module}"
+
+    done < <(
+        find "${LSM_MODULES_DIR}" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type d \
+        -printf "%f\n" | sort
+    )
 }
+
 
 
 #
 # Проверка наличия
 #
-registry_exists() {
+registry_exists()
+{
+    local name="$1"
 
-    local id="$1"
 
-    [[ -n "${LSM_COMPONENTS_NAME[$id]:-}" ]]
+    for module in "${LSM_MODULES_REGISTRY[@]}"
+    do
 
+        [[ "${module}" == "${name}" ]] && return 0
+
+    done
+
+
+    return 1
 }
 
 
-#
-# Включить компонент
-#
-registry_enable() {
 
-    local id="$1"
+#
+# Получить список
+#
+registry_list()
+{
+    printf "%s\n" "${LSM_MODULES_REGISTRY[@]}"
+}
 
-    if registry_exists "${id}"; then
-        LSM_COMPONENTS_ENABLED["${id}"]="true"
+
+
+#
+# Получить информацию модуля
+#
+registry_info()
+{
+    local module="$1"
+
+    local manifest="${LSM_MODULES_DIR}/${module}/manifest.conf"
+
+
+    if [[ -f "${manifest}" ]]; then
+
+        # shellcheck source=/dev/null
+        source "${manifest}"
+
+        echo
+        echo "Название: ${MODULE_TITLE}"
+        echo "Описание: ${MODULE_DESCRIPTION}"
+        echo "Категория: ${MODULE_CATEGORY}"
+        echo "Версия: ${MODULE_VERSION}"
+        echo
+
+    else
+
+        return 1
+
     fi
-
 }
 
 
-#
-# Выключить компонент
-#
-registry_disable() {
-
-    local id="$1"
-
-    if registry_exists "${id}"; then
-        LSM_COMPONENTS_ENABLED["${id}"]="false"
-    fi
-
-}
-
 
 #
-# Проверка выбран
+# Загрузка реестра по умолчанию
 #
-registry_is_enabled() {
-
-    local id="$1"
-
-    [[ "${LSM_COMPONENTS_ENABLED[$id]:-false}" == "true" ]]
-
-}
-
-
-#
-# Загрузка стандартного набора
-#
-registry_load_default() {
-
-
-    registry_add \
-        "system" \
-        "Система" \
-        "CPU, RAM, нагрузка"
-
-
-    registry_add \
-        "disk" \
-        "Диски" \
-        "Свободное место"
-
-
-    registry_add \
-        "smart" \
-        "SMART" \
-        "Состояние HDD/SSD"
-
-
-    registry_add \
-        "temperature" \
-        "Температура" \
-        "Контроль температуры"
-
-
-    registry_add \
-        "raid" \
-        "RAID" \
-        "Состояние mdadm"
-
-
-    registry_add \
-        "ups" \
-        "ИБП" \
-        "Контроль APC UPS"
-
-
-    registry_add \
-        "login" \
-        "Входы" \
-        "SSH авторизация"
-
-
-    registry_add \
-        "fail2ban" \
-        "Fail2Ban" \
-        "Блокировки"
-
-
-    registry_add \
-        "core" \
-        "Ядро LSM" \
-        "Служебные компоненты"
-
-
+registry_load_default()
+{
+    registry_scan
 }
