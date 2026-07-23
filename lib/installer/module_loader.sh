@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Загрузчик метаданных модулей
-# Путь: lib/installer/module_loader.sh
+# Module Metadata Loader
+# Path: lib/installer/module_loader.sh
 # ==============================================================================
-
 
 set -Eeuo pipefail
 
@@ -12,11 +11,6 @@ set -Eeuo pipefail
 [[ -n "${LSM_MODULE_LOADER_LOADED:-}" ]] && return 0
 readonly LSM_MODULE_LOADER_LOADED=1
 
-
-
-#
-# Корень проекта
-#
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
@@ -27,7 +21,7 @@ export LSM_MODULES_DIR
 
 
 #
-# Метаданные текущего модуля
+# Current metadata cache
 #
 
 MODULE_ID=""
@@ -35,39 +29,22 @@ MODULE_NAME=""
 MODULE_DESCRIPTION=""
 MODULE_VERSION=""
 MODULE_CATEGORY=""
-
 MODULE_DEPENDENCIES=""
-MODULE_REQUIRED_PACKAGES=""
-MODULE_SERVICE=""
-MODULE_TIMER=""
+MODULE_DEFAULT=""
 
 
-
-#
-# Инициализация
-#
 
 module_loader_init()
 {
-
-    if [[ ! -d "${LSM_MODULES_DIR}" ]]; then
-
+    [[ -d "${LSM_MODULES_DIR}" ]] || {
         log_warn "Каталог модулей отсутствует: ${LSM_MODULES_DIR}"
-
         return 1
-
-    fi
-
+    }
 
     return 0
-
 }
 
 
-
-#
-# Очистка метаданных
-#
 
 module_clear_metadata()
 {
@@ -77,36 +54,22 @@ module_clear_metadata()
     MODULE_DESCRIPTION=""
     MODULE_VERSION=""
     MODULE_CATEGORY=""
-
     MODULE_DEPENDENCIES=""
-    MODULE_REQUIRED_PACKAGES=""
-    MODULE_SERVICE=""
-    MODULE_TIMER=""
+    MODULE_DEFAULT=""
 
 }
 
 
-
-#
-# Загрузка manifest.conf
-#
 
 module_load_manifest()
 {
 
     local module="${1:-}"
 
-
-    if [[ -z "${module}" ]]; then
-
-        return 1
-
-    fi
-
+    [[ -n "${module}" ]] || return 1
 
 
     local manifest="${LSM_MODULES_DIR}/${module}/manifest.conf"
-
 
 
     if [[ ! -f "${manifest}" ]]; then
@@ -118,14 +81,13 @@ module_load_manifest()
     fi
 
 
-
     module_clear_metadata
 
 
-
     # shellcheck disable=SC1090
+    set +u
     source "${manifest}"
-
+    set -u
 
 
     return 0
@@ -135,173 +97,135 @@ module_load_manifest()
 
 
 #
-# Список модулей
+# Универсальный getter
 #
+
+module_get_field()
+{
+
+    local module="$1"
+    local field="$2"
+
+
+    if ! module_load_manifest "${module}"; then
+        return 1
+    fi
+
+
+    case "${field}" in
+
+        MODULE_ID)
+            echo "${MODULE_ID}"
+        ;;
+
+        MODULE_NAME)
+            echo "${MODULE_NAME}"
+        ;;
+
+        MODULE_DESCRIPTION)
+            echo "${MODULE_DESCRIPTION}"
+        ;;
+
+        MODULE_VERSION)
+            echo "${MODULE_VERSION}"
+        ;;
+
+        MODULE_CATEGORY)
+            echo "${MODULE_CATEGORY}"
+        ;;
+
+        MODULE_DEPENDENCIES)
+            echo "${MODULE_DEPENDENCIES}"
+        ;;
+
+        MODULE_DEFAULT)
+            echo "${MODULE_DEFAULT}"
+        ;;
+
+        *)
+            return 1
+        ;;
+
+    esac
+
+}
+
+
 
 module_loader_list()
 {
 
-    if [[ ! -d "${LSM_MODULES_DIR}" ]]; then
-
-        return 0
-
-    fi
+    [[ -d "${LSM_MODULES_DIR}" ]] || return 0
 
 
-    {
-        find "${LSM_MODULES_DIR}" \
-            -mindepth 1 \
-            -maxdepth 1 \
-            -type d \
-            -printf "%f\n" \
-            2>/dev/null || true
-
-    } | sort
+    find "${LSM_MODULES_DIR}" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type d \
+        -printf "%f\n" \
+        2>/dev/null | sort
 
 }
 
 
-
-#
-# Получение имени
-#
 
 module_get_name()
 {
-
-    local module="${1:-}"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_NAME:-${module}}"
-
-    else
-
-        echo "${module}"
-
-    fi
-
+    module_get_field "$1" MODULE_NAME
 }
 
 
-
-#
-# Получение категории
-#
-
-module_get_category()
-{
-
-    local module="${1:-}"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_CATEGORY:-unknown}"
-
-    else
-
-        echo "unknown"
-
-    fi
-
-}
-
-
-
-#
-# Получение описания
-#
 
 module_get_description()
 {
-
-    local module="${1:-}"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_DESCRIPTION:-Нет описания}"
-
-    else
-
-        echo "Нет описания"
-
-    fi
-
+    module_get_field "$1" MODULE_DESCRIPTION
 }
 
 
 
-#
-# Получение версии
-#
+module_get_category()
+{
+    module_get_field "$1" MODULE_CATEGORY
+}
+
+
 
 module_get_version()
 {
-
-    local module="${1:-}"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_VERSION:-unknown}"
-
-    else
-
-        echo "unknown"
-
-    fi
-
+    module_get_field "$1" MODULE_VERSION
 }
 
 
-
-#
-# Проверка manifest
-#
 
 module_has_manifest()
 {
-
-    local module="${1:-}"
-
-
-    [[ -f "${LSM_MODULES_DIR}/${module}/manifest.conf" ]]
-
+    [[ -f "${LSM_MODULES_DIR}/${1}/manifest.conf" ]]
 }
 
 
-
-#
-# Проверка модуля
-#
 
 module_validate()
 {
 
-    local module="${1:-}"
+    local module="$1"
 
 
     if ! module_has_manifest "${module}"; then
 
-        log_error "Модуль ${module}: отсутствует manifest.conf"
+        log_error "Нет manifest.conf: ${module}"
 
         return 1
 
     fi
-
 
 
     if [[ ! -f "${LSM_MODULES_DIR}/${module}/install.sh" ]]; then
 
-        log_error "Модуль ${module}: отсутствует install.sh"
+        log_error "Нет install.sh: ${module}"
 
         return 1
 
     fi
-
 
 
     return 0
@@ -310,22 +234,13 @@ module_validate()
 
 
 
-#
-# Полная информация о модуле
-#
-
 module_info()
 {
 
-    local module="${1:-}"
+    local module="$1"
 
 
-    if ! module_load_manifest "${module}"; then
-
-        return 1
-
-    fi
-
+    module_load_manifest "${module}" || return 1
 
 
 cat <<EOF
@@ -341,27 +256,7 @@ ID: ${MODULE_ID}
 
 Зависимости: ${MODULE_DEPENDENCIES:-нет}
 
-Пакеты: ${MODULE_REQUIRED_PACKAGES:-нет}
-
-Служба: ${MODULE_SERVICE:-нет}
-
-Таймер: ${MODULE_TIMER:-нет}
+По умолчанию: ${MODULE_DEFAULT:-нет}
 EOF
-
-}
-
-
-
-#
-# API для TUI
-#
-
-module_get_metadata()
-{
-
-    local module="${1:-}"
-
-
-    module_info "${module}"
 
 }
