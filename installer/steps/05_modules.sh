@@ -41,22 +41,46 @@ step_modules()
 
 
 
-    log_info "Выбраны модули:"
+    log_info "Выбранные модули:"
+
+
     printf ' - %s\n' "${SELECTED_MODULES[@]}"
 
 
 
     #
-    # Проверка registry
+    # Проверка API
     #
 
-    if ! declare -f registry_resolve_order >/dev/null 2>&1; then
+    local required_functions=(
+        "modules_install"
+        "module_validate_all"
+        "module_loader_init"
+    )
 
-        log_error "Registry модулей не загружен."
 
-        return 1
 
-    fi
+    for func in "${required_functions[@]}"
+    do
+
+        if ! declare -f "${func}" >/dev/null 2>&1; then
+
+            log_error \
+                "Отсутствует API установки модулей: ${func}"
+
+            return 1
+
+        fi
+
+    done
+
+
+
+    #
+    # Инициализация загрузчика
+    #
+
+    module_loader_init
 
 
 
@@ -67,23 +91,58 @@ step_modules()
     local install_order=()
 
 
-    while read -r module
-    do
 
-        [[ -z "${module}" ]] && continue
-
-        install_order+=("${module}")
+    if declare -f registry_resolve_order >/dev/null 2>&1; then
 
 
-    done < <(
-        registry_resolve_order "${SELECTED_MODULES[@]}"
-    )
+        log_info "Определение порядка установки через registry..."
+
+
+
+        while read -r module
+        do
+
+            [[ -z "${module}" ]] && continue
+
+            install_order+=("${module}")
+
+
+        done < <(
+            registry_resolve_order "${SELECTED_MODULES[@]}"
+        )
+
+
+    else
+
+
+        log_warn \
+            "Registry порядка установки недоступен."
+
+        log_warn \
+            "Используется порядок выбора пользователя."
+
+
+        install_order=("${SELECTED_MODULES[@]}")
+
+
+    fi
+
+
+
+    if [[ ${#install_order[@]} -eq 0 ]]; then
+
+        log_error \
+            "Не удалось сформировать порядок установки."
+
+        return 1
+
+    fi
 
 
 
     echo
 
-    log_info "Порядок установки модулей:"
+    log_info "Порядок установки:"
 
 
     printf ' -> %s\n' "${install_order[@]}"
@@ -91,20 +150,22 @@ step_modules()
 
 
     #
-    # Установка
+    # Проверка и установка
     #
 
     for module in "${install_order[@]}"
     do
 
 
-        log_info "Проверка зависимостей: ${module}"
+        log_info \
+            "Проверка модуля: ${module}"
 
 
-        if ! registry_check_dependencies "${module}"; then
+
+        if ! module_validate_all "${module}"; then
 
             log_error \
-            "Проверка зависимостей не пройдена для ${module}"
+                "Модуль ${module} не прошел проверку."
 
             return 1
 
@@ -112,14 +173,15 @@ step_modules()
 
 
 
-        log_info "Установка модуля: ${module}"
+        log_info \
+            "Установка модуля: ${module}"
 
 
 
         if ! modules_install "${module}"; then
 
             log_error \
-            "Ошибка установки модуля: ${module}"
+                "Ошибка установки модуля: ${module}"
 
             return 1
 
@@ -128,14 +190,14 @@ step_modules()
 
 
         log_success \
-        "Модуль ${module} установлен."
-
+            "Модуль ${module} успешно установлен."
 
     done
 
 
 
-    log_success "Все модули успешно установлены."
+    log_success \
+        "Все выбранные модули установлены."
 
 }
 
@@ -156,7 +218,11 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
     source "${LSM_ROOT}/lib/core/common.sh"
     source "${LSM_ROOT}/lib/core/logging.sh"
+
     source "${LSM_ROOT}/lib/installer/modules.sh"
+    source "${LSM_ROOT}/lib/installer/module_loader.sh"
+    source "${LSM_ROOT}/lib/installer/module_validator.sh"
+
     source "${LSM_ROOT}/lib/installer/registry.sh"
 
 
