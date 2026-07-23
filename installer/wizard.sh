@@ -41,7 +41,18 @@ run_install_wizard() {
 
     # Если выбрана быстрая установка — ставим стандартный пресет модулей
     if [[ "${INSTALL_MODE:-preset}" == "preset" ]]; then
-        SELECTED_MODULES=("disk" "system" "temperature" "smart" "login")
+        SELECTED_MODULES=()
+
+
+while read -r module; do
+
+    if [[ "$(registry_default "${module}")" == "yes" ]]; then
+
+        SELECTED_MODULES+=("${module}")
+
+    fi
+
+done < <(registry_list)
     else
         screen_modules
     fi
