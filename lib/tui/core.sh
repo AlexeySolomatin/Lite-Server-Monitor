@@ -15,10 +15,10 @@ readonly LSM_TUI_CORE_LOADED=1
 
 
 #
-# Проверка наличия терминала
+# Проверка интерактивного терминала
 #
 
-wizard_init_tty()
+tui_check_terminal()
 {
 
     if [[ ! -t 0 ]]; then
@@ -47,10 +47,31 @@ tui_clear()
 
 
 #
-# Сообщение пользователю
+# Проверка dialog
 #
 
-tui_msg()
+tui_check_dialog()
+{
+
+    if ! command -v dialog >/dev/null 2>&1; then
+
+        log_error "Не найден пакет dialog."
+
+        log_info "Установите: apt install dialog"
+
+        return 1
+
+    fi
+
+}
+
+
+
+#
+# Информационное окно
+#
+
+tui_message()
 {
 
     local title="${1:-LSM}"
@@ -61,8 +82,7 @@ tui_msg()
         --clear \
         --title "${title}" \
         --msgbox "${message}" \
-        10 60
-
+        12 60
 
 }
 
@@ -83,19 +103,18 @@ tui_confirm()
         --yesno "${message}" \
         10 50
 
-
 }
 
 
 
 #
-# Ошибка TUI
+# Окно ошибки
 #
 
 tui_error()
 {
 
-    tui_msg \
+    tui_message \
         "Ошибка" \
         "$1"
 
@@ -104,60 +123,45 @@ tui_error()
 
 
 #
-# Информационный блок
+# Успешное выполнение
 #
 
-tui_info()
+tui_success()
 {
 
-    tui_msg \
-        "Информация" \
+    tui_message \
+        "Успешно" \
         "$1"
 
 }
 
-tui_clear()
-{
-    clear
-}
 
 
-tui_title()
-{
-    echo
-    echo "======================================"
-    echo "$1"
-    echo "======================================"
-    echo
-}
-
-
-tui_section()
-{
-    echo
-    echo "--- $1 ---"
-}
-
-
-tui_success()
-{
-    echo "[ OK ] $1"
-}
-
-
-tui_error()
-{
-    echo "[ ОШИБКА ] $1"
-}
-
+#
+# Предупреждение
+#
 
 tui_warning()
 {
-    echo "[ ВНИМАНИЕ ] $1"
+
+    tui_message \
+        "Внимание" \
+        "$1"
+
 }
 
 
+
+#
+# Пауза
+#
+
 tui_pause()
 {
-    read -rp "Нажмите Enter..."
+
+    dialog \
+        --clear \
+        --msgbox "Нажмите Enter для продолжения" \
+        8 40
+
 }
