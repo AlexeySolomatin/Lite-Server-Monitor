@@ -5,24 +5,15 @@
 # -----------------------------------------------------------------------------
 
 [Unit]
-Description=Lite Server Monitor - Disk Usage Monitor
+Description=Lite Server Monitor (LSM) - Служба проверки дискового пространства
 Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
-After=network-online.target
+After=local-fs.target
 
 [Service]
 Type=oneshot
 ExecStart=/opt/lsm/modules/disk/check_disk.sh
-
-User=root
-Group=root
-
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/lsm /var/log/lsm
-
-Nice=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
