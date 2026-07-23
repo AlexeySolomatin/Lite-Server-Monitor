@@ -3,7 +3,7 @@
 # Lite Server Monitor (LSM)
 # Библиотека: Генератор системных отчетов
 # Путь: lib/core/report.sh
-# Описание: Функции сбора метрик и агрегации данных для ежедневного отчета.
+# Описание: Функции сбора метрик и агрегации данных для системного отчета
 # ==============================================================================
 
 if [[ -n "${_LSM_LIB_REPORT_SH:-}" ]]; then
@@ -11,23 +11,23 @@ if [[ -n "${_LSM_LIB_REPORT_SH:-}" ]]; then
 fi
 _LSM_LIB_REPORT_SH=1
 
-set -euo pipefail
+set -Eeuo pipefail
 
 # ------------------------------------------------------------------------------
 # Заголовок отчета
 # ------------------------------------------------------------------------------
 report_get_header() {
     local hostname_str uptime_str load_avg date_str
-    
-    hostname_str="$(hostname -f 2>/dev/null || hostname)"
-    uptime_str="$(uptime -p 2>/dev/null || uptime)"
-    
+
+    hostname_str="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "localhost")"
+    uptime_str="$(uptime -p 2>/dev/null || uptime 2>/dev/null || echo "Н/Д")"
+
     if [[ -r /proc/loadavg ]]; then
         load_avg="$(cut -d' ' -f1-3 /proc/loadavg)"
     else
         load_avg="Н/Д"
     fi
-    
+
     date_str="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 
     cat <<EOF
@@ -53,17 +53,18 @@ report_get_system_metrics() {
     df -h -x tmpfs -x devtmpfs -x squashfs 2>/dev/null || echo "Не удалось получить данные дисков"
 
     echo -e "\n--- Топ-5 процессов по использованию CPU ---"
-    ps aux --sort=-%cpu 2>/dev/null | head -n 6 || true
+    { ps aux --sort=-%cpu 2>/dev/null || true; } | head -n 6 || true
 
     echo -e "\n--- Топ-5 процессов по использованию RAM ---"
-    ps aux --sort=-%mem 2>/dev/null | head -n 6 || true
+    { ps aux --sort=-%mem 2>/dev/null || true; } | head -n 6 || true
 }
 
 # ------------------------------------------------------------------------------
 # Проверка активных предупреждений (State-файлы)
 # ------------------------------------------------------------------------------
 report_get_active_alerts() {
-    local state_dir="${LSM_STATE_DIR:-/var/lib/lsm/state}"
+    local data_dir="${LSM_DATA_DIR:-/var/lib/lsm}"
+    local state_dir="${LSM_STATE_DIR:-${data_dir}/state}"
     local state_file module_name state_data found_alerts=0
 
     echo -e "\n--- Активные предупреждения LSM ---"
@@ -87,7 +88,6 @@ report_get_active_alerts() {
 # ------------------------------------------------------------------------------
 report_collect_modules() {
     local modules_dir="${LSM_MODULES_DIR:-${LSM_ROOT:-/opt/lsm}/modules}"
-    local found_any=0
     local mod_path mod_name check_script
 
     if [[ ! -d "${modules_dir}" ]]; then
@@ -96,10 +96,10 @@ report_collect_modules() {
 
     for mod_path in "${modules_dir}"/*; do
         [[ -d "${mod_path}" ]] || continue
-        
+
         mod_name="$(basename "${mod_path}")"
         [[ "${mod_name}" == "core" ]] && continue
-        
+
         check_script=""
         if [[ -f "${mod_path}/files/check_${mod_name}.sh" ]]; then
             check_script="${mod_path}/files/check_${mod_name}.sh"
@@ -108,9 +108,8 @@ report_collect_modules() {
         fi
 
         if [[ -n "${check_script}" && -x "${check_script}" ]]; then
-            found_any=1
             echo -e "\n--- Модуль: ${mod_name^^} ---"
-            
+
             if "${check_script}" --help 2>&1 | grep -q -- '--report'; then
                 "${check_script}" --report || echo "[!] Модуль ${mod_name} завершил отчет с ошибкой."
             else
@@ -124,12 +123,14 @@ report_collect_modules() {
 # Полная сборка отчета
 # ------------------------------------------------------------------------------
 report_generate_full() {
+    local current_ver="${PROJECT_VERSION:-${LSM_VERSION:-0.1.1-alpha}}"
+
     report_get_header
     report_get_system_metrics
     report_get_active_alerts
     report_collect_modules
     echo ""
     echo "=============================================================================="
-    echo " Отчет сформирован LSM v${LSM_VERSION:-1.0.0}"
+    echo " Отчет сформирован LSM v${current_ver}"
     echo "=============================================================================="
 }
