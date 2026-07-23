@@ -1,177 +1,223 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Systemd Services Library
-# -----------------------------------------------------------------------------
+# Библиотека управления службами Systemd
+# Путь: lib/installer/services.sh
+# ==============================================================================
 
-[[ -n "${LSM_SERVICES_LOADED:-}" ]] && return
+set -Eeuo pipefail
+
+# Защита от повторного подключения файла
+[[ -n "${LSM_SERVICES_LOADED:-}" ]] && return 0
 readonly LSM_SERVICES_LOADED=1
 
 #
-# Check if systemd unit exists
+# Проверка существования юнита Systemd
 #
 services_exists() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
-    systemctl list-unit-files --no-legend \
-        | awk '{print $1}' \
-        | grep -Fxq "${unit}"
-
+    # Защита от pipefail при вызове systemctl
+    { systemctl list-unit-files "${unit}" 2>/dev/null || true; } | grep -q "^${unit}"
 }
 
 #
-# Check if service is enabled
+# Проверка, включена ли служба в автозапуск (enabled)
 #
 services_is_enabled() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     systemctl is-enabled "${unit}" >/dev/null 2>&1
-
 }
 
 #
-# Check if service is active
+# Проверка, запущен ли сервис в данный момент (active)
 #
 services_is_active() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     systemctl is-active "${unit}" >/dev/null 2>&1
-
 }
 
 #
-# Reload systemd configuration
+# Перечитывание конфигурации демон-менеджера Systemd
 #
 services_daemon_reload() {
-
-    log_info "Reloading systemd daemon..."
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Перезагрузка конфигурации Systemd (daemon-reload)..."
+    else
+        echo "[INFO] Перезагрузка конфигурации Systemd..."
+    fi
 
     systemctl daemon-reload
-
 }
 
 #
-# Enable service
+# Включение автозапуска службы
 #
 services_enable() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     if services_is_enabled "${unit}"; then
-        log_info "Already enabled: ${unit}"
+        if declare -f log_info >/dev/null 2>&1; then
+            log_info "SERVICES" "Служба уже включена в автозапуск: ${unit}"
+        fi
         return 0
     fi
 
-    log_info "Enabling ${unit}"
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Включение автозапуска для ${unit}"
+    fi
 
     systemctl enable "${unit}"
-
 }
 
 #
-# Disable service
+# Исключение службы из автозапуска
 #
 services_disable() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     if ! services_is_enabled "${unit}"; then
-        log_info "Already disabled: ${unit}"
+        if declare -f log_info >/dev/null 2>&1; then
+            log_info "SERVICES" "Служба уже отключена из автозапуска: ${unit}"
+        fi
         return 0
     fi
 
-    log_info "Disabling ${unit}"
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Отключение автозапуска для ${unit}"
+    fi
 
     systemctl disable "${unit}"
-
 }
 
 #
-# Start service
+# Запуск службы
 #
 services_start() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     if services_is_active "${unit}"; then
-        log_info "Already running: ${unit}"
+        if declare -f log_info >/dev/null 2>&1; then
+            log_info "SERVICES" "Служба уже запущена: ${unit}"
+        fi
         return 0
     fi
 
-    log_info "Starting ${unit}"
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Запуск службы ${unit}"
+    fi
 
     systemctl start "${unit}"
-
 }
 
 #
-# Stop service
+# Остановка службы
 #
 services_stop() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     if ! services_is_active "${unit}"; then
-        log_info "Already stopped: ${unit}"
+        if declare -f log_info >/dev/null 2>&1; then
+            log_info "SERVICES" "Служба уже остановлена: ${unit}"
+        fi
         return 0
     fi
 
-    log_info "Stopping ${unit}"
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Остановка службы ${unit}"
+    fi
 
     systemctl stop "${unit}"
-
 }
 
 #
-# Restart service
+# Перезапуск службы
 #
 services_restart() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
-    log_info "Restarting ${unit}"
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Перезапуск службы ${unit}"
+    fi
 
     systemctl restart "${unit}"
-
 }
 
 #
-# Reload service
+# Перезагрузка конфигурации службы (reload)
 #
 services_reload() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
-    log_info "Reloading ${unit}"
+    if declare -f log_info >/dev/null 2>&1; then
+        log_info "SERVICES" "Перезагрузка конфигурации службы ${unit}"
+    fi
 
     systemctl reload "${unit}"
-
 }
 
 #
-# Enable and start service
+# Включение автозапуска и немедленный запуск службы
 #
 services_enable_and_start() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     services_enable "${unit}"
     services_start "${unit}"
-
 }
 
 #
-# Stop and disable service
+# Остановка службы и отключение из автозапуска
 #
 services_stop_and_disable() {
+    local unit="${1:-}"
 
-    local unit="$1"
+    if [[ -z "${unit}" ]]; then
+        return 1
+    fi
 
     services_stop "${unit}"
     services_disable "${unit}"
-
 }
