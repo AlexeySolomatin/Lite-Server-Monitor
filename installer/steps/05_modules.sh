@@ -1,136 +1,58 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Шаг инсталлятора 05: Установка модулей мониторинга
+# Шаг 05: Установка модулей
 # Путь: installer/steps/05_modules.sh
 # ==============================================================================
+
 
 set -Eeuo pipefail
 
 
-step_modules() {
+step_modules()
+{
 
 
-    log_info "Установка выбранных модулей мониторинга..."
-
-
-    local modules_dir="${LSM_ROOT}/modules"
+    log_info "Установка выбранных модулей..."
 
 
 
-    #
-    # Проверка выбранных модулей
-    #
-    if [[ ${#SELECTED_MODULES[@]:-0} -eq 0 ]]; then
+    if ! declare -p SELECTED_MODULES >/dev/null 2>&1; then
 
-        log_warn "Список модулей пуст."
 
-        return 0
+        log_error "Список модулей не определен."
+
+        return 1
 
     fi
 
 
 
-    log_info "Выбранные модули: ${SELECTED_MODULES[*]}"
+    for module in "${SELECTED_MODULES[@]}"
+    do
 
 
-
-    for module in "${SELECTED_MODULES[@]}"; do
-
-
-        local module_path="${modules_dir}/${module}"
-        local installer="${module_path}/install.sh"
+        if modules_exists "${module}"; then
 
 
+            modules_install "${module}"
 
-        #
-        # Проверка существования модуля
-        #
-        if [[ ! -d "${module_path}" ]]; then
 
-            log_warn "Модуль '${module}' отсутствует, пропуск."
+        else
 
-            continue
+
+            log_warn \
+            "Модуль ${module} отсутствует, пропуск."
+
 
         fi
-
-
-
-        #
-        # Проверка установщика
-        #
-        if [[ ! -f "${installer}" ]]; then
-
-            log_warn "Установщик модуля '${module}' не найден."
-
-            continue
-
-        fi
-
-
-
-        log_info "Установка модуля: ${module}"
-
-
-
-        bash "${installer}"
-
-
-
-        log_success "Модуль '${module}' установлен."
-
 
 
     done
 
 
 
-    log_success "Установка выбранных модулей завершена."
+    log_success "Установка модулей завершена."
+
 
 }
-
-
-
-#
-# Автономный запуск для тестирования
-#
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-
-
-    LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-
-    export LSM_ROOT
-
-
-
-    source "${LSM_ROOT}/lib/core/common.sh"
-
-    source "${LSM_ROOT}/lib/core/logging.sh"
-
-    source "${LSM_ROOT}/lib/installer/registry.sh"
-
-
-
-    registry_load_default
-
-
-
-    SELECTED_MODULES=()
-
-
-    while read -r module; do
-
-        if [[ "$(registry_default "${module}")" == "yes" ]]; then
-
-            SELECTED_MODULES+=("${module}")
-
-        fi
-
-
-    done < <(registry_list)
-
-
-
-    step_modules
-
-fi
