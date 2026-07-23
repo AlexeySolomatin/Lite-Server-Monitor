@@ -2,7 +2,7 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Скрипт проверки состояния Docker
-# Путь: modules/docker/files/check_docker.sh
+# Путь: modules/docker/check_docker.sh
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -47,6 +47,21 @@ send_alert() {
     
     if [[ "${IS_REPORT_MODE}" == "false" && -f "${NOTIFY_SCRIPT}" && -x "${NOTIFY_SCRIPT}" ]]; then
         "${NOTIFY_SCRIPT}" "docker" "${severity}" "${message}" || true
+    fi
+}
+
+# Преобразование размеров (GB/MB/KB) в гигабайты для сравнения
+to_gb() {
+    local raw="$1"
+    local num
+    num="$(echo "${raw}" | grep -oE '^[0-9]+(\.[0-9]+)?' || echo "0")"
+    
+    if [[ "${raw}" =~ GB|GiB ]]; then
+        echo "${num%.*}"
+    elif [[ "${raw}" =~ TB|TiB ]]; then
+        echo "$(( ${num%.*} * 1024 ))"
+    else
+        echo "0"
     fi
 }
 
@@ -110,13 +125,19 @@ fi
 img_size="0B"
 cnt_size="0B"
 vol_size="0B"
+total_storage_gb=0
 
 if [[ "${CHECK_STORAGE}" == "true" ]]; then
     df_output="$(docker system df 2>/dev/null || true)"
     if [[ -n "${df_output}" ]]; then
-        img_size="$(echo "${df_output}" | awk '/Images/ {print $4}' || echo "N/A")"
-        cnt_size="$(echo "${df_output}" | awk '/Containers/ {print $4}' || echo "N/A")"
-        vol_size="$(echo "${df_output}" | awk '/Local Volumes/ {print $4}' || echo "N/A")"
+        img_size="$(echo "${df_output}" | awk '/Images/ {print $4}' || echo "0B")"
+        cnt_size="$(echo "${df_output}" | awk '/Containers/ {print $4}' || echo "0B")"
+        vol_size="$(echo "${df_output}" | awk '/Local Volumes/ {print $5}' || echo "0B")"
+
+        img_gb=$(to_gb "${img_size}")
+        cnt_gb=$(to_gb "${cnt_size}")
+        vol_gb=$(to_gb "${vol_size}")
+        total_storage_gb=$(( img_gb + cnt_gb + vol_gb ))
     fi
 fi
 
@@ -127,19 +148,29 @@ if [[ "${IS_REPORT_MODE}" == "true" ]]; then
     echo "Статус     : OK"
     echo "Версия     : ${docker_version}"
     echo "Контейнеры :"
-    echo "  Всего     : ${cnt_total}"
-    echo "  Запущены  : ${cnt_running}"
+    echo "  Всего      : ${cnt_total}"
+    echo "  Запущены   : ${cnt_running}"
     echo "  Остановлены: ${cnt_stopped}"
     echo "Хранилище  :"
-    echo "  Образы    : ${img_size}"
-    echo "  Контейнеры: ${cnt_size}"
-    echo "  Тома      : ${vol_size}"
+    echo "  Образы     : ${img_size}"
+    echo "  Контейнеры : ${cnt_size}"
+    echo "  Тома       : ${vol_size}"
 else
-    # Проверка условий тревоги при штатном мониторинге
+    has_warning=false
+
     if [[ "${STOPPED_CONTAINER_WARNING}" == "true" && ${cnt_stopped} -gt 0 ]]; then
         echo "[!] WARNING: Обнаружено остановленных контейнеров: ${cnt_stopped}"
         send_alert "WARNING" "Обнаружены остановленные Docker-контейнеры (${cnt_stopped} из ${cnt_total})"
-    else
+        has_warning=true
+    fi
+
+    if [[ "${CHECK_STORAGE}" == "true" && ${total_storage_gb} -ge ${STORAGE_WARNING_GB} ]]; then
+        echo "[!] WARNING: Использование диска Docker (${total_storage_gb} GB) превысило порог ${STORAGE_WARNING_GB} GB"
+        send_alert "WARNING" "Docker занимает ${total_storage_gb} GB диска (порог: ${STORAGE_WARNING_GB} GB)"
+        has_warning=true
+    fi
+
+    if [[ "${has_warning}" == "false" ]]; then
         echo "[+] Docker работает штатно. Запущено контейнеров: ${cnt_running}/${cnt_total}"
     fi
 fi
