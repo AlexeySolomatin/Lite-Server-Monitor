@@ -54,8 +54,11 @@ source "${LSM_ROOT}/lib/installer/module_loader.sh"
 #
 
 readonly LSM_TUI_DIR="${LSM_ROOT}/lib/tui"
+readonly LSM_TUI_WIDGET_DIR="${LSM_TUI_DIR}/widgets"
 
-
+if [[ -f "${LSM_TUI_WIDGET_DIR}/menu.sh" ]]; then
+    source "${LSM_TUI_WIDGET_DIR}/menu.sh"
+fi
 
 if [[ -f "${LSM_TUI_DIR}/core.sh" ]]; then
     source "${LSM_TUI_DIR}/core.sh"
