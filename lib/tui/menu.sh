@@ -5,7 +5,6 @@
 # Путь: lib/tui/menu.sh
 # ==============================================================================
 
-
 set -Eeuo pipefail
 
 
@@ -17,81 +16,57 @@ readonly LSM_TUI_MENU_LOADED=1
 tui_main_menu()
 {
 
-while true
-do
-
-
-CHOICE=$(dialog \
---clear \
---title "Lite Server Monitor" \
---menu "Главное меню" \
-20 70 10 \
-1 "Установка компонентов" \
-2 "Управление модулями" \
-3 "Конфигурация" \
-4 "Отчеты" \
-5 "Диагностика системы" \
-6 "Информация о системе" \
-0 "Выход" \
-3>&1 1>&2 2>&3)
+    tui_menu_create \
+        "Lite Server Monitor" \
+        "Главное меню" \
+        1 "Установка компонентов" \
+        2 "Управление модулями" \
+        3 "Конфигурация" \
+        4 "Отчеты" \
+        5 "Диагностика системы" \
+        6 "Информация о системе" \
+        0 "Выход"
 
 
 
-case "${CHOICE}" in
+    case "${TUI_MENU_RESULT}" in
 
 
-1)
-
-screen_install
-
-;;
+        1)
+            screen_install
+        ;;
 
 
-2)
-
-screen_modules
-
-;;
+        2)
+            screen_modules
+        ;;
 
 
-3)
-
-screen_config
-
-;;
+        3)
+            screen_config
+        ;;
 
 
-4)
-
-screen_report
-
-;;
+        4)
+            screen_report
+        ;;
 
 
-5)
-
-screen_doctor
-
-;;
+        5)
+            screen_doctor
+        ;;
 
 
-6)
-
-screen_info
-
-;;
+        6)
+            screen_info
+        ;;
 
 
-0|*)
-
-break
-
-;;
+        0|*)
+            return 1
+        ;;
 
 
-esac
-
-
-done
+    esac
 
 }
