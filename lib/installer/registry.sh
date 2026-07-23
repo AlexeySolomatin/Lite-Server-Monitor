@@ -5,7 +5,6 @@
 # Путь: lib/installer/registry.sh
 # ==============================================================================
 
-
 set -Eeuo pipefail
 
 
@@ -14,18 +13,25 @@ readonly LSM_INSTALL_REGISTRY_LOADED=1
 
 
 
+#
+# Paths
+#
+
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
 
+#
+# Registry storage
+#
+
 declare -A LSM_MODULE_NAME
 declare -A LSM_MODULE_DESCRIPTION
 declare -A LSM_MODULE_VERSION
 declare -A LSM_MODULE_CATEGORY
 declare -A LSM_MODULE_DEPENDENCIES
-declare -A LSM_MODULE_DEFAULT
 
 
 declare -a LSM_MODULES=()
@@ -33,27 +39,11 @@ declare -a LSM_MODULES=()
 
 
 #
-# Проверка регистрации
-#
-
-registry_exists()
-{
-
-    local module="$1"
-
-    [[ -v "LSM_MODULE_NAME[$module]" ]]
-
-}
-
-
-
-#
-# Добавление модуля
+# Add module
 #
 
 registry_add()
 {
-
     local module="$1"
 
 
@@ -61,18 +51,10 @@ registry_add()
 
 
 
-    if registry_exists "${module}"; then
-
-        return 0
-
-    fi
-
-
-
     if ! module_has_manifest "${module}"; then
 
         log_warn \
-        "Модуль ${module}: отсутствует manifest.conf"
+            "Модуль ${module}: manifest.conf отсутствует"
 
         return 1
 
@@ -80,61 +62,35 @@ registry_add()
 
 
 
-    if ! module_load_manifest "${module}"; then
-
-        log_error \
-        "Модуль ${module}: ошибка загрузки manifest"
-
-        return 1
-
-    fi
+    module_load_manifest "${module}"
 
 
 
     LSM_MODULES+=("${module}")
 
 
+    LSM_MODULE_NAME["${module}"]="${MODULE_NAME}"
 
-    LSM_MODULE_NAME["${module}"]="${MODULE_NAME:-${module}}"
+    LSM_MODULE_DESCRIPTION["${module}"]="${MODULE_DESCRIPTION}"
 
-    LSM_MODULE_DESCRIPTION["${module}"]="${MODULE_DESCRIPTION:-}"
+    LSM_MODULE_VERSION["${module}"]="${MODULE_VERSION}"
 
-    LSM_MODULE_VERSION["${module}"]="${MODULE_VERSION:-unknown}"
-
-    LSM_MODULE_CATEGORY["${module}"]="${MODULE_CATEGORY:-unknown}"
+    LSM_MODULE_CATEGORY["${module}"]="${MODULE_CATEGORY}"
 
     LSM_MODULE_DEPENDENCIES["${module}"]="${MODULE_DEPENDENCIES:-}"
-
-    LSM_MODULE_DEFAULT["${module}"]="${MODULE_DEFAULT:-no}"
-
 
 }
 
 
 
 #
-# Сканирование всех модулей
+# Scan modules directory
 #
 
 registry_scan()
 {
 
     LSM_MODULES=()
-
-    unset LSM_MODULE_NAME
-    unset LSM_MODULE_DESCRIPTION
-    unset LSM_MODULE_VERSION
-    unset LSM_MODULE_CATEGORY
-    unset LSM_MODULE_DEPENDENCIES
-    unset LSM_MODULE_DEFAULT
-
-
-    declare -gA LSM_MODULE_NAME
-    declare -gA LSM_MODULE_DESCRIPTION
-    declare -gA LSM_MODULE_VERSION
-    declare -gA LSM_MODULE_CATEGORY
-    declare -gA LSM_MODULE_DEPENDENCIES
-    declare -gA LSM_MODULE_DEFAULT
 
 
 
@@ -147,23 +103,28 @@ registry_scan()
 
         [[ -z "${module}" ]] && continue
 
+
         registry_add "${module}"
 
 
     done < <(
 
         find "${LSM_MODULES_DIR}" \
-        -mindepth 1 \
-        -maxdepth 1 \
-        -type d \
-        -printf "%f\n" \
-        2>/dev/null | sort
+            -mindepth 1 \
+            -maxdepth 1 \
+            -type d \
+            -printf "%f\n" \
+            | sort
 
     )
 
 }
 
 
+
+#
+# Load registry
+#
 
 registry_load_default()
 {
@@ -175,7 +136,23 @@ registry_load_default()
 
 
 #
-# Список
+# Check module exists
+#
+
+registry_exists()
+{
+
+    local module="$1"
+
+
+    [[ -n "${LSM_MODULE_NAME[$module]:-}" ]]
+
+}
+
+
+
+#
+# List modules
 #
 
 registry_list()
@@ -188,7 +165,7 @@ registry_list()
 
 
 #
-# Информация
+# Module information
 #
 
 registry_info()
@@ -197,30 +174,34 @@ registry_info()
     local module="$1"
 
 
-    registry_exists "${module}" || return 1
+
+    if ! registry_exists "${module}"; then
+
+        return 1
+
+    fi
+
 
 
 cat <<EOF
 
-Модуль: ${module}
+Module:
+${module}
 
-Название:
+Name:
 ${LSM_MODULE_NAME[$module]}
 
-Описание:
+Description:
 ${LSM_MODULE_DESCRIPTION[$module]}
 
-Категория:
-${LSM_MODULE_CATEGORY[$module]}
-
-Версия:
+Version:
 ${LSM_MODULE_VERSION[$module]}
 
-Зависимости:
-${LSM_MODULE_DEPENDENCIES[$module]:-нет}
+Category:
+${LSM_MODULE_CATEGORY[$module]}
 
-По умолчанию:
-${LSM_MODULE_DEFAULT[$module]}
+Dependencies:
+${LSM_MODULE_DEPENDENCIES[$module]:-none}
 
 EOF
 
@@ -229,20 +210,23 @@ EOF
 
 
 #
-# Зависимости
+# Dependencies
 #
 
 registry_dependencies()
 {
 
-    echo "${LSM_MODULE_DEPENDENCIES[$1]:-}"
+    local module="$1"
+
+
+    echo "${LSM_MODULE_DEPENDENCIES[$module]:-}"
 
 }
 
 
 
 #
-# Проверка зависимостей
+# Dependency validation
 #
 
 registry_check_dependencies()
@@ -251,17 +235,24 @@ registry_check_dependencies()
     local module="$1"
 
 
-    registry_exists "${module}" || return 1
+
+    local deps
+
+    deps=$(registry_dependencies "${module}")
 
 
 
-    for dep in $(registry_dependencies "${module}")
+    [[ -z "${deps}" ]] && return 0
+
+
+
+    for dep in ${deps}
     do
 
         if ! registry_exists "${dep}"; then
 
             log_error \
-            "Модуль ${module}: отсутствует зависимость ${dep}"
+                "Модуль ${module}: отсутствует зависимость ${dep}"
 
             return 1
 
@@ -275,21 +266,28 @@ registry_check_dependencies()
 
 
 #
-# Resolver порядка установки
+# Resolve installation order
 #
 
 registry_resolve_order()
 {
 
+    local requested=("$@")
+
+
     local result=()
 
 
-    for module in "$@"
+
+    for module in "${requested[@]}"
     do
 
-        registry_resolve_module "${module}" result
+        registry_resolve_module \
+            "${module}" \
+            result
 
     done
+
 
 
     printf "%s\n" "${result[@]}"
@@ -297,6 +295,10 @@ registry_resolve_order()
 }
 
 
+
+#
+# Recursive dependency resolver
+#
 
 registry_resolve_module()
 {
@@ -316,21 +318,18 @@ registry_resolve_module()
 
 
 
-    if ! registry_exists "${module}"; then
+    local deps
 
-        log_error \
-        "Модуль ${module} отсутствует в registry"
-
-        return 1
-
-    fi
+    deps=$(registry_dependencies "${module}")
 
 
 
-    for dep in $(registry_dependencies "${module}")
+    for dep in ${deps}
     do
 
-        registry_resolve_module "${dep}" output
+        registry_resolve_module \
+            "${dep}" \
+            output
 
     done
 
