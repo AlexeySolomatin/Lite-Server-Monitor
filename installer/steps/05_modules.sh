@@ -7,66 +7,130 @@
 
 set -Eeuo pipefail
 
+
 step_modules() {
-    if declare -f log_info >/dev/null 2>&1; then
-        log_info "Установка выбранных модулей мониторинга..."
-    else
-        echo "[i] Установка выбранных модулей мониторинга..."
+
+
+    log_info "Установка выбранных модулей мониторинга..."
+
+
+    local modules_dir="${LSM_ROOT}/modules"
+
+
+
+    #
+    # Проверка выбранных модулей
+    #
+    if [[ ${#SELECTED_MODULES[@]:-0} -eq 0 ]]; then
+
+        log_warn "Список модулей пуст."
+
+        return 0
+
     fi
 
-    local modules_dir="${LSM_ROOT:-/opt/lsm}/modules"
 
-    # Если массив SELECTED_MODULES пуст или не объявлен, задаем набор по умолчанию
-    if [[ -z "${SELECTED_MODULES:-}" || ${#SELECTED_MODULES[@]} -eq 0 ]]; then
-        SELECTED_MODULES=("disk" "system" "temperature" "smart" "login" "docker")
-    fi
 
-    if declare -f log_info >/dev/null 2>&1; then
-        log_info "Выбранные модули: ${SELECTED_MODULES[*]}"
-    else
-        echo "[i] Выбранные модули: ${SELECTED_MODULES[*]}"
-    fi
+    log_info "Выбранные модули: ${SELECTED_MODULES[*]}"
+
+
 
     for module in "${SELECTED_MODULES[@]}"; do
-        local installer="${modules_dir}/${module}/install.sh"
 
-        if [[ -f "${installer}" ]]; then
-            if declare -f log_info >/dev/null 2>&1; then
-                log_info "Запуск инсталлятора модуля: ${module}..."
-            else
-                echo "[i] Запуск инсталлятора модуля: ${module}..."
-            fi
 
-            bash "${installer}"
-        else
-            if declare -f log_warn >/dev/null 2>&1; then
-                log_warn "Инсталлятор модуля '${module}' не найден по пути ${installer}, пропуск."
-            else
-                echo "[!] Предупреждение: Инсталлятор модуля '${module}' не найден по пути ${installer}, пропуск." >&2
-            fi
+        local module_path="${modules_dir}/${module}"
+        local installer="${module_path}/install.sh"
+
+
+
+        #
+        # Проверка существования модуля
+        #
+        if [[ ! -d "${module_path}" ]]; then
+
+            log_warn "Модуль '${module}' отсутствует, пропуск."
+
+            continue
+
         fi
+
+
+
+        #
+        # Проверка установщика
+        #
+        if [[ ! -f "${installer}" ]]; then
+
+            log_warn "Установщик модуля '${module}' не найден."
+
+            continue
+
+        fi
+
+
+
+        log_info "Установка модуля: ${module}"
+
+
+
+        bash "${installer}"
+
+
+
+        log_success "Модуль '${module}' установлен."
+
+
+
     done
 
-    if declare -f log_success >/dev/null 2>&1; then
-        log_success "Все выбранные модули мониторинга успешно установлены."
-    else
-        echo "[+] Все выбранные модули мониторинга успешно установлены."
-    fi
+
+
+    log_success "Установка выбранных модулей завершена."
+
 }
 
+
+
+#
+# Автономный запуск для тестирования
+#
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+
+
     LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
     export LSM_ROOT
 
-    if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
-        # shellcheck source=/dev/null
-        source "${LSM_ROOT}/lib/core/common.sh"
-    fi
 
-    if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
-        # shellcheck source=/dev/null
-        source "${LSM_ROOT}/lib/core/ui.sh"
-    fi
+
+    source "${LSM_ROOT}/lib/core/common.sh"
+
+    source "${LSM_ROOT}/lib/core/logging.sh"
+
+    source "${LSM_ROOT}/lib/installer/registry.sh"
+
+
+
+    registry_load_default
+
+
+
+    SELECTED_MODULES=()
+
+
+    while read -r module; do
+
+        if [[ "$(registry_default "${module}")" == "yes" ]]; then
+
+            SELECTED_MODULES+=("${module}")
+
+        fi
+
+
+    done < <(registry_list)
+
+
 
     step_modules
+
 fi
