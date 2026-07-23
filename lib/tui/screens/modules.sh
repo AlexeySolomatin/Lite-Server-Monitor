@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# TUI Управление модулями
+# Экран управления модулями
 # Путь: lib/tui/screens/modules.sh
 # ==============================================================================
 
@@ -9,142 +9,185 @@
 set -Eeuo pipefail
 
 
+#
+# Загрузка API модулей
+#
+
+if [[ -f "${LSM_ROOT}/lib/installer/modules.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/installer/modules.sh"
+fi
+
+
+
+#
+# Экран списка модулей
+#
 
 screen_modules()
 {
 
-while true
-do
+    tui_clear
+
+    tui_title "Управление модулями LSM"
 
 
-local items=()
-
-local index=1
+    echo
 
 
+    if ! declare -f modules_list >/dev/null 2>&1; then
 
-while read -r module
-do
+        tui_error "API управления модулями недоступно."
 
-    items+=(
-        "${index}"
-        "${module}"
-    )
+        tui_pause
 
-    MODULE_INDEX_${index}="${module}"
+        return 1
 
-    ((index++))
-
-
-done < <(registry_list)
+    fi
 
 
 
-items+=(
-    "0"
-    "Назад"
-)
+    local modules
+
+    modules="$(modules_list || true)"
 
 
 
-CHOICE=$(dialog \
---clear \
---title "Модули LSM" \
---menu "Выберите действие" \
-20 60 12 \
-"${items[@]}" \
-3>&1 1>&2 2>&3)
+    if [[ -z "${modules}" ]]; then
+
+        tui_warning "Модули не найдены."
+
+    else
+
+        tui_section "Доступные модули"
+
+        echo "${modules}"
+
+    fi
+
+
+    echo
+
+
+    tui_menu \
+        "Установить модуль" \
+        "Удалить модуль" \
+        "Назад"
 
 
 
-[[ "${CHOICE}" == "0" ]] && break
+    case "${TUI_MENU_RESULT}" in
 
 
+        1)
 
-MODULE="${MODULE_INDEX_${CHOICE}}"
+            screen_modules_install
 
-
-
-screen_module_actions "${MODULE}"
-
+            ;;
 
 
-done
+        2)
+
+            screen_modules_remove
+
+            ;;
+
+
+        3)
+
+            return 0
+
+            ;;
+
+
+    esac
 
 }
 
 
 
-screen_module_actions()
+#
+# Установка модуля
+#
+
+screen_modules_install()
 {
 
-local module="$1"
+    tui_clear
+
+    tui_title "Установка модуля"
+
+
+    read -rp "Имя модуля: " module
+
+
+    if [[ -z "${module}" ]]; then
+
+        tui_error "Имя модуля не указано."
+
+        tui_pause
+
+        return
+
+    fi
 
 
 
-while true
-do
+    if modules_install "${module}"; then
+
+        tui_success "Модуль ${module} установлен."
+
+    else
+
+        tui_error "Ошибка установки модуля ${module}."
+
+    fi
 
 
-ACTION=$(dialog \
---clear \
---title "Модуль: ${module}" \
---menu "Действие" \
-15 60 8 \
-1 "Информация" \
-2 "Установить" \
-3 "Удалить" \
-4 "Назад" \
-3>&1 1>&2 2>&3)
+    tui_pause
+
+}
 
 
 
-case "${ACTION}" in
+#
+# Удаление модуля
+#
+
+screen_modules_remove()
+{
+
+    tui_clear
+
+    tui_title "Удаление модуля"
 
 
-1)
-
-module_info "${module}" \
-| dialog \
---title "${module}" \
---textbox - \
-20 70
-
-;;
+    read -rp "Имя модуля: " module
 
 
-2)
+    if [[ -z "${module}" ]]; then
 
-modules_install "${module}"
+        tui_error "Имя модуля не указано."
 
-tui_msg \
-"Установка" \
-"Модуль ${module} установлен"
+        tui_pause
 
-;;
+        return
 
-
-3)
-
-modules_remove "${module}"
-
-tui_msg \
-"Удаление" \
-"Модуль ${module} удален"
-
-;;
+    fi
 
 
-4|*)
 
-break
+    if modules_remove "${module}"; then
 
-;;
+        tui_success "Модуль ${module} удален."
+
+    else
+
+        tui_error "Ошибка удаления модуля ${module}."
+
+    fi
 
 
-esac
-
-
-done
+    tui_pause
 
 }
