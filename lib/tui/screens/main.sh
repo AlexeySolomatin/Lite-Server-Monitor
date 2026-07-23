@@ -14,41 +14,30 @@ readonly LSM_TUI_MAIN_LOADED=1
 
 
 
+#
+# Главное окно
+#
+
 screen_main()
 {
 
-    wizard_init_tty
+    ui_banner
 
-
-    while true
-    do
-
-
-        ui_banner
-
-
-        tui_main_menu
-
-
-        break
-
-
-    done
+    tui_main_menu
 
 }
 
 
 
 #
-# Дополнительные экраны-заглушки
-# будут заменены отдельными модулями
+# Информация о системе
 #
-
 
 screen_info()
 {
 
     local info
+
 
     info=$(cat <<EOF
 Lite Server Monitor (LSM)
@@ -56,7 +45,7 @@ Lite Server Monitor (LSM)
 Версия:
 ${PROJECT_VERSION:-unknown}
 
-Корень:
+Корень проекта:
 ${LSM_ROOT}
 
 Состояние:
@@ -65,7 +54,8 @@ EOF
 )
 
 
-    tui_msg \
+
+    tui_message \
         "Информация" \
         "${info}"
 
@@ -73,21 +63,29 @@ EOF
 
 
 
+#
+# Установка компонентов
+#
+
 screen_install()
 {
 
-    tui_msg \
+    tui_message \
         "Установка" \
-        "Мастер установки будет перенесен из installer/wizard.sh"
+        "Мастер установки будет подключен через installer/wizard.sh"
 
 }
 
 
 
+#
+# Конфигурация
+#
+
 screen_config()
 {
 
-    tui_msg \
+    tui_message \
         "Конфигурация" \
         "Раздел настройки LSM"
 
@@ -95,10 +93,14 @@ screen_config()
 
 
 
+#
+# Отчеты
+#
+
 screen_report()
 {
 
-    tui_msg \
+    tui_message \
         "Отчеты" \
         "Ежедневные отчеты и журнал событий"
 
@@ -106,10 +108,14 @@ screen_report()
 
 
 
+#
+# Диагностика
+#
+
 screen_doctor()
 {
 
-    tui_msg \
+    tui_message \
         "Диагностика" \
         "Проверка компонентов LSM"
 
