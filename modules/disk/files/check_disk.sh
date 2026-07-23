@@ -12,7 +12,8 @@ export LC_ALL=C
 export LANG=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+# Поднимаемся на 2 уровня вверх: /opt/lsm/modules/disk -> /opt/lsm
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 #
 # Конфигурация
@@ -29,8 +30,10 @@ fi
 #
 
 WARNING="${WARNING:-80}"
-CRITICAL="${CRITICAL:-95}"
+CRITICAL="${CRITICAL:-90}"
 IGNORE_MOUNTS="${IGNORE_MOUNTS:-}"
+NOTIFY_ON_ALERT="${NOTIFY_ON_ALERT:-true}"
+NOTIFY_ON_RECOVERY="${NOTIFY_ON_RECOVERY:-true}"
 
 STATE_DIR="/var/lib/lsm/state"
 LOCK_FILE="${STATE_DIR}/disk_check.lock"
@@ -72,13 +75,19 @@ mkdir -p "${STATE_DIR}"
             -v ignore="${IGNORE_MOUNTS}" '
 
         BEGIN {
-            split(ignore, a, " ")
-            for(i in a) skip[a[i]]=1
+            n = split(ignore, a, " ")
         }
 
         NR > 1 {
-            # Пропуск игнорируемых точек монтирования
-            if (skip[$6]) next
+            # Пропуск игнорируемых точек монтирования (включая вложенные пути)
+            skip = 0
+            for (i = 1; i <= n; i++) {
+                if (a[i] != "" && ($6 == a[i] || index($6, a[i] "/") == 1)) {
+                    skip = 1
+                    break
+                }
+            }
+            if (skip) next
 
             # Пропуск псевдо-ФС и виртуальных разделов
             if ($1 ~ /(tmpfs|devtmpfs|loop|cdrom|overlay|squashfs)/) next
@@ -100,10 +109,14 @@ mkdir -p "${STATE_DIR}"
         source "${NOTIFY_SCRIPT}"
 
         if [[ "${STATUS}" != "OK" ]]; then
-            DETAILS=$(printf "\n- %s" "${ALERT_MESSAGES[@]}")
-            notify "disk" "${STATUS}" "Обнаружено переполнение дисковых разделов:${DETAILS}"
+            if [[ "${NOTIFY_ON_ALERT}" == "true" ]]; then
+                DETAILS=$(printf "\n- %s" "${ALERT_MESSAGES[@]}")
+                notify "disk" "${STATUS}" "Обнаружено переполнение дисковых разделов:${DETAILS}"
+            fi
         else
-            notify "disk" "OK" "Использование всех дисковых разделов находится в пределах нормы."
+            if [[ "${NOTIFY_ON_RECOVERY}" == "true" ]]; then
+                notify "disk" "OK" "Использование всех дисковых разделов находится в пределах нормы."
+            fi
         fi
     fi
 
