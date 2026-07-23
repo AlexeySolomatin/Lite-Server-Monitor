@@ -1,81 +1,116 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Главное меню TUI
+# Главный экран TUI
+# Путь: lib/tui/screens/main.sh
 # ==============================================================================
+
+
+set -Eeuo pipefail
+
+
+[[ -n "${LSM_TUI_MAIN_LOADED:-}" ]] && return 0
+readonly LSM_TUI_MAIN_LOADED=1
+
 
 
 screen_main()
 {
 
-while true
-do
+    wizard_init_tty
 
 
-CHOICE=$(dialog \
---clear \
---title "Lite Server Monitor" \
---menu "Главное меню" \
-20 70 10 \
-1 "Установка компонентов" \
-2 "Управление модулями" \
-3 "Конфигурация" \
-4 "Отчеты" \
-5 "Диагностика" \
-6 "Выход" \
-3>&1 1>&2 2>&3)
+    while true
+    do
+
+
+        ui_banner
+
+
+        tui_main_menu
+
+
+        break
+
+
+    done
+
+}
 
 
 
-case "${CHOICE}" in
+#
+# Дополнительные экраны-заглушки
+# будут заменены отдельными модулями
+#
 
 
-1)
+screen_info()
+{
 
-screen_install
+    local info
 
-;;
+    info=$(cat <<EOF
+Lite Server Monitor (LSM)
 
+Версия:
+${PROJECT_VERSION:-unknown}
 
-2)
+Корень:
+${LSM_ROOT}
 
-screen_modules
-
-;;
-
-
-3)
-
-screen_config
-
-;;
-
-
-4)
-
-screen_report
-
-;;
+Состояние:
+готов к работе
+EOF
+)
 
 
-5)
+    tui_msg \
+        "Информация" \
+        "${info}"
 
-screen_doctor
-
-;;
-
-
-6|*)
-
-clear
-break
-
-;;
+}
 
 
-esac
+
+screen_install()
+{
+
+    tui_msg \
+        "Установка" \
+        "Мастер установки будет перенесен из installer/wizard.sh"
+
+}
 
 
-done
+
+screen_config()
+{
+
+    tui_msg \
+        "Конфигурация" \
+        "Раздел настройки LSM"
+
+}
+
+
+
+screen_report()
+{
+
+    tui_msg \
+        "Отчеты" \
+        "Ежедневные отчеты и журнал событий"
+
+}
+
+
+
+screen_doctor()
+{
+
+    tui_msg \
+        "Диагностика" \
+        "Проверка компонентов LSM"
 
 }
