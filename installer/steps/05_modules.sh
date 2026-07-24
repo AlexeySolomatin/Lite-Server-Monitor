@@ -7,15 +7,11 @@
 
 set -Eeuo pipefail
 
-
-
 step_modules()
 {
 
     log_info \
         "Подготовка установки модулей..."
-
-
 
     #
     # Проверка выбора пользователя
@@ -30,8 +26,6 @@ step_modules()
 
     fi
 
-
-
     if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
 
         log_warn \
@@ -41,16 +35,11 @@ step_modules()
 
     fi
 
-
-
     log_info \
         "Выбранные модули:"
 
-
     printf ' - %s\n' \
         "${SELECTED_MODULES[@]}"
-
-
 
     #
     # Проверка API
@@ -60,10 +49,11 @@ step_modules()
         "module_loader_init"
         "module_validate_all"
         "modules_install"
+        "registry_exists"
         "registry_resolve_order"
     )
 
-
+    local func
 
     for func in "${required_functions[@]}"
     do
@@ -79,8 +69,6 @@ step_modules()
 
     done
 
-
-
     #
     # Инициализация загрузчика
     #
@@ -94,7 +82,25 @@ step_modules()
 
     fi
 
+    #
+    # Проверка существования выбранных модулей
+    #
 
+    local module
+
+    for module in "${SELECTED_MODULES[@]}"
+    do
+
+        if ! registry_exists "${module}"; then
+
+            log_error \
+                "Модуль отсутствует в реестре: ${module}"
+
+            return 1
+
+        fi
+
+    done
 
     #
     # Разрешение зависимостей
@@ -102,23 +108,17 @@ step_modules()
 
     local install_order=()
 
-
-
     while read -r module
     do
 
         [[ -z "${module}" ]] && continue
 
-
         install_order+=("${module}")
-
 
     done < <(
         registry_resolve_order \
             "${SELECTED_MODULES[@]}"
     )
-
-
 
     if [[ ${#install_order[@]} -eq 0 ]]; then
 
@@ -129,16 +129,11 @@ step_modules()
 
     fi
 
-
-
     log_info \
         "Порядок установки:"
 
-
     printf ' -> %s\n' \
         "${install_order[@]}"
-
-
 
     #
     # Проверка и установка
@@ -147,11 +142,8 @@ step_modules()
     for module in "${install_order[@]}"
     do
 
-
         log_info \
             "Проверка модуля: ${module}"
-
-
 
         if ! module_validate_all "${module}"; then
 
@@ -162,12 +154,8 @@ step_modules()
 
         fi
 
-
-
         log_info \
             "Установка модуля: ${module}"
-
-
 
         if ! modules_install "${module}"; then
 
@@ -178,22 +166,17 @@ step_modules()
 
         fi
 
-
-
         log_success \
             "Модуль установлен: ${module}"
 
-
     done
-
-
 
     log_success \
         "Все выбранные модули успешно установлены."
 
+    return 0
+
 }
-
-
 
 #
 # Автономный запуск
@@ -201,30 +184,20 @@ step_modules()
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
-
     LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-
     export LSM_ROOT
-
-
 
     source "${LSM_ROOT}/lib/core/common.sh"
     source "${LSM_ROOT}/lib/core/logging.sh"
-
 
     source "${LSM_ROOT}/lib/installer/module_loader.sh"
     source "${LSM_ROOT}/lib/installer/module_validator.sh"
     source "${LSM_ROOT}/lib/installer/modules.sh"
     source "${LSM_ROOT}/lib/installer/registry.sh"
 
-
-
     registry_load_default
 
-
-
     SELECTED_MODULES=("$@")
-
 
     step_modules
 
