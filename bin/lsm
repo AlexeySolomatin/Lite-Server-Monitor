@@ -1,113 +1,91 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Главный исполняемый CLI-файл управления
-# Путь: bin/lsm (или /usr/local/bin/lsm)
+# Главный исполняемый CLI
+# Путь: bin/lsm
 # ==============================================================================
 
 set -Eeuo pipefail
 
+#
+# Определение корня проекта
+#
 
-LSM_ROOT="/opt/lsm"
+if [[ -n "${LSM_ROOT:-}" ]]; then
+    :
+elif [[ -d "/opt/lsm" ]]; then
+    LSM_ROOT="/opt/lsm"
+else
+    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 
+readonly LSM_ROOT
 export LSM_ROOT
 
+#
+# Проверка структуры проекта
+#
 
+if [[ ! -d "${LSM_ROOT}/commands" ]]; then
+    echo "ERROR: Каталог commands не найден."
+    echo "LSM_ROOT=${LSM_ROOT}"
+    exit 1
+fi
 
 COMMAND="${1:-help}"
-
 shift || true
-
-
 
 case "${COMMAND}" in
 
-
     help|-h|--help)
-
-        exec "${LSM_ROOT}/commands/help.sh"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/help.sh" "$@"
+        ;;
 
     modules)
-
-        exec "${LSM_ROOT}/commands/modules.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/modules.sh" "$@"
+        ;;
 
     install)
-
-        exec "${LSM_ROOT}/commands/install.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/install.sh" "$@"
+        ;;
 
     uninstall)
-
-        exec "${LSM_ROOT}/commands/uninstall.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/uninstall.sh" "$@"
+        ;;
 
     update)
-
-        exec "${LSM_ROOT}/commands/update.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/update.sh" "$@"
+        ;;
 
     status)
-
-        exec "${LSM_ROOT}/commands/status.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/status.sh" "$@"
+        ;;
 
     doctor)
-
-        exec "${LSM_ROOT}/commands/doctor.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/doctor.sh" "$@"
+        ;;
 
     report)
-
-        exec "${LSM_ROOT}/commands/report.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/report.sh" "$@"
+        ;;
 
     config)
-
-        exec "${LSM_ROOT}/commands/config.sh" "$@"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/config.sh" "$@"
+        ;;
 
     version)
-
-        exec "${LSM_ROOT}/commands/version.sh" "$@"
-
-    ;;
+        exec bash "${LSM_ROOT}/commands/version.sh" "$@"
+        ;;
 
     tui)
-
-        exec "${LSM_ROOT}/commands/tui.sh" "${@:2}"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/lib/tui/tui.sh"
+        ;;
 
     *)
-
         echo
         echo "Неизвестная команда: ${COMMAND}"
         echo
-
-        exec "${LSM_ROOT}/commands/help.sh"
-
-    ;;
-
+        exec bash "${LSM_ROOT}/commands/help.sh"
+        ;;
 
 esac
