@@ -337,21 +337,9 @@ registry_resolve_module()
 {
 
     local module="$1"
+    local __array_name="$2"
 
-    local output_name="$2"
-
-    local -n output="${output_name}"
-
-
-
-    for item in "${output[@]}"
-    do
-
-        [[ "${item}" == "${module}" ]] && return
-
-    done
-
-
+    [[ -n "${module}" ]] || return 1
 
     if ! registry_exists "${module}"; then
 
@@ -362,25 +350,25 @@ registry_resolve_module()
 
     fi
 
-
+    # Уже добавлен?
+    local item
+    eval "for item in \"\${${__array_name}[@]}\"; do
+        [[ \"\$item\" == \"${module}\" ]] && return 0
+    done"
 
     local deps
+    deps="$(registry_dependencies "${module}")"
 
-    deps=$(registry_dependencies "${module}")
+    if [[ -n "${deps}" ]]; then
+        local dep
+        for dep in ${deps}
+        do
+            registry_resolve_module \
+                "${dep}" \
+                "${__array_name}" || return 1
+        done
+    fi
 
-
-
-    for dep in ${deps}
-    do
-
-        registry_resolve_module \
-            "${dep}" \
-            "${output_name}"
-
-    done
-
-
-
-    output+=("${module}")
+    eval "${__array_name}+=(\"${module}\")"
 
 }
