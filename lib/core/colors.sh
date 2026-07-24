@@ -5,34 +5,59 @@
 # Путь: lib/core/colors.sh
 # ==============================================================================
 
+
 # shellcheck disable=SC2034
 
-# Защита от повторного подключения файла
+
+#
+# Защита от повторного подключения
+#
+
 [[ -n "${LSM_COLORS_LOADED:-}" ]] && return 0
-readonly LSM_COLORS_LOADED=1
+LSM_COLORS_LOADED=1
 
-# Цвета отключаются, если:
-# - Вывод (stdout) направлен не в интерактивный терминал (например, в файл или перенаправлен)
-# - В системе установлена переменная окружения NO_COLOR
+
+
+#
+# Определение цветов
+#
+
 if [[ ! -t 1 || -n "${NO_COLOR:-}" ]]; then
-    readonly COLOR_RESET=""
-    readonly COLOR_BOLD=""
-    readonly COLOR_RED=""
-    readonly COLOR_GREEN=""
-    readonly COLOR_YELLOW=""
-    readonly COLOR_BLUE=""
-    readonly COLOR_MAGENTA=""
-    readonly COLOR_CYAN=""
-    readonly COLOR_WHITE=""
-else
-    readonly COLOR_RESET="\033[0m"
-    readonly COLOR_BOLD="\033[1m"
 
-    readonly COLOR_RED="\033[31m"
-    readonly COLOR_GREEN="\033[32m"
-    readonly COLOR_YELLOW="\033[33m"
-    readonly COLOR_BLUE="\033[34m"
-    readonly COLOR_MAGENTA="\033[35m"
-    readonly COLOR_CYAN="\033[36m"
-    readonly COLOR_WHITE="\033[37m"
+    COLOR_RESET=""
+    COLOR_BOLD=""
+
+    COLOR_RED=""
+    COLOR_GREEN=""
+    COLOR_YELLOW=""
+    COLOR_BLUE=""
+    COLOR_MAGENTA=""
+    COLOR_CYAN=""
+    COLOR_WHITE=""
+
+else
+
+    COLOR_RESET="\033[0m"
+    COLOR_BOLD="\033[1m"
+
+    COLOR_RED="\033[31m"
+    COLOR_GREEN="\033[32m"
+    COLOR_YELLOW="\033[33m"
+    COLOR_BLUE="\033[34m"
+    COLOR_MAGENTA="\033[35m"
+    COLOR_CYAN="\033[36m"
+    COLOR_WHITE="\033[37m"
+
 fi
+
+
+export COLOR_RESET
+export COLOR_BOLD
+
+export COLOR_RED
+export COLOR_GREEN
+export COLOR_YELLOW
+export COLOR_BLUE
+export COLOR_MAGENTA
+export COLOR_CYAN
+export COLOR_WHITE
