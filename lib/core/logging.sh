@@ -1,37 +1,22 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Библиотека логирования (Раздел 8 Контекста)
+# Библиотека логирования
 # Путь: lib/core/logging.sh
 # ==============================================================================
 
 set -Eeuo pipefail
 
+[[ -n "${LSM_LOGGING_LOADED:-}" ]] && return 0
+readonly LSM_LOGGING_LOADED=1
+
 #
-# Уровень логирования:
-# ERROR = 0
-# WARN  = 1
-# INFO  = 2
-# DEBUG = 3
+# Настройки по умолчанию
 #
 
 : "${LOG_LEVEL:=INFO}"
 : "${LSM_LOG_DIR:=/var/log/lsm}"
 : "${LSM_LOG_FILE:=${LSM_LOG_DIR}/lsm.log}"
-
-#
-# Преобразование строкового уровня в числовой
-#
-
-case "${LOG_LEVEL^^}" in
-    ERROR) LOG_LEVEL=0 ;;
-    WARN|WARNING) LOG_LEVEL=1 ;;
-    INFO) LOG_LEVEL=2 ;;
-    DEBUG) LOG_LEVEL=3 ;;
-    ''|*[!0-9]*)
-        LOG_LEVEL=2
-        ;;
-esac
 
 #
 # Цветовые коды по умолчанию
@@ -57,8 +42,21 @@ _log()
     local component="$4"
     local message="$5"
 
-    if (( LOG_LEVEL < level )); then
-        return
+    # Безопасное определение текущего числового уровня (защита от set -u)
+    local current_level_str="${LOG_LEVEL:-INFO}"
+    local current_numeric_level=2
+
+    case "${current_level_str^^}" in
+        0|ERROR)        current_numeric_level=0 ;;
+        1|WARN|WARNING) current_numeric_level=1 ;;
+        2|INFO)        current_numeric_level=2 ;;
+        3|DEBUG)       current_numeric_level=3 ;;
+        *)             current_numeric_level=2 ;;
+    esac
+
+    # Проверка порога логирования
+    if (( current_numeric_level < level )); then
+        return 0
     fi
 
     local ts
