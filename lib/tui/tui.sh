@@ -5,13 +5,8 @@
 # Путь: lib/tui/tui.sh
 # ==============================================================================
 
-
 set -Eeuo pipefail
 
-
-#
-# Защита от повторной загрузки
-#
 
 [[ -n "${LSM_TUI_LOADED:-}" ]] && return 0
 readonly LSM_TUI_LOADED=1
@@ -38,21 +33,13 @@ source "${LSM_ROOT}/lib/core/ui.sh"
 
 
 #
-# Загрузка API модулей
+# Загрузка installer API
 #
 
+source "${LSM_ROOT}/lib/installer/module_loader.sh"
+source "${LSM_ROOT}/lib/installer/module_validator.sh"
 source "${LSM_ROOT}/lib/installer/registry.sh"
 source "${LSM_ROOT}/lib/installer/modules.sh"
-
-
-if [[ -f "${LSM_ROOT}/lib/installer/module_loader.sh" ]]; then
-    source "${LSM_ROOT}/lib/installer/module_loader.sh"
-fi
-
-
-if [[ -f "${LSM_ROOT}/lib/installer/module_validator.sh" ]]; then
-    source "${LSM_ROOT}/lib/installer/module_validator.sh"
-fi
 
 
 
@@ -65,7 +52,7 @@ readonly LSM_TUI_DIR="${LSM_ROOT}/lib/tui"
 
 
 #
-# Безопасная загрузка файлов
+# Безопасная загрузка компонентов
 #
 
 load_tui_file()
@@ -74,13 +61,16 @@ load_tui_file()
     local file="$1"
 
 
+
     if [[ ! -f "${file}" ]]; then
 
-        log_error "Файл TUI не найден: ${file}"
+        log_error \
+            "Файл TUI не найден: ${file}"
 
         return 1
 
     fi
+
 
 
     # shellcheck source=/dev/null
@@ -91,25 +81,30 @@ load_tui_file()
 
 
 #
-# Проверка API зависимостей
+# Проверка API
 #
 
 tui_check_dependencies()
 {
 
-    local functions=(
+    local required_functions=(
         "registry_load_default"
         "module_loader_init"
         "module_loader_list"
+        "module_validate_all"
+        "modules_install"
+        "modules_remove"
     )
 
 
-    for func in "${functions[@]}"
+
+    for func in "${required_functions[@]}"
     do
 
         if ! declare -f "${func}" >/dev/null 2>&1; then
 
-            log_error "Отсутствует обязательный API: ${func}"
+            log_error \
+                "Отсутствует API TUI: ${func}"
 
             return 1
 
@@ -126,7 +121,7 @@ tui_check_dependencies()
 
 
 #
-# Загрузка экранов
+# Загрузка экрана
 #
 
 load_tui_screen()
@@ -134,50 +129,46 @@ load_tui_screen()
 
     local screen="$1"
 
-
     local file="${LSM_TUI_DIR}/screens/${screen}.sh"
 
 
-    if ! load_tui_file "${file}"; then
 
-        log_error "Не удалось загрузить экран: ${screen}"
+    load_tui_file "${file}" || {
+
+        log_error \
+            "Не удалось загрузить экран ${screen}"
 
         return 1
 
-    fi
+    }
 
 }
 
 
 
 #
-# Загрузка TUI компонентов
+# Загрузка компонентов TUI
 #
 
 load_tui_components()
 {
 
-    #
-    # Ядро TUI
-    #
-
-    load_tui_file \
-        "${LSM_TUI_DIR}/core.sh"
+    local components=(
+        "core.sh"
+        "menu.sh"
+    )
 
 
 
-    #
-    # Меню
-    #
+    for component in "${components[@]}"
+    do
 
-    load_tui_file \
-        "${LSM_TUI_DIR}/menu.sh"
+        load_tui_file \
+            "${LSM_TUI_DIR}/${component}" || return 1
+
+    done
 
 
-
-    #
-    # Экраны
-    #
 
     local screens=(
         "main"
@@ -189,12 +180,17 @@ load_tui_components()
     )
 
 
+
     for screen in "${screens[@]}"
     do
 
-        load_tui_screen "${screen}"
+        load_tui_screen "${screen}" || return 1
 
     done
+
+
+
+    return 0
 
 }
 
@@ -209,21 +205,19 @@ tui_init()
 
     if ! command -v dialog >/dev/null 2>&1; then
 
-        log_error "Не установлен пакет dialog."
+        log_error \
+            "Не установлен пакет dialog."
 
-        log_info "Установите: apt install dialog"
-
-        return 1
-
-    fi
-
-
-
-    if ! tui_check_dependencies; then
+        log_info \
+            "Установите: apt install dialog"
 
         return 1
 
     fi
+
+
+
+    tui_check_dependencies || return 1
 
 
 
@@ -231,7 +225,14 @@ tui_init()
 
 
 
-    module_loader_init
+    if ! module_loader_init; then
+
+        log_error \
+            "Не удалось инициализировать загрузчик модулей"
+
+        return 1
+
+    fi
 
 
 
@@ -242,16 +243,16 @@ tui_init()
 
 
 #
-# Запуск интерфейса
+# Запуск TUI
 #
 
 tui_start()
 {
 
-
     if ! tui_init; then
 
-        log_error "Инициализация TUI завершилась ошибкой"
+        log_error \
+            "Ошибка инициализации TUI"
 
         exit 1
 
@@ -261,7 +262,8 @@ tui_start()
 
     if ! load_tui_components; then
 
-        log_error "Не удалось загрузить компоненты TUI"
+        log_error \
+            "Ошибка загрузки компонентов TUI"
 
         exit 1
 
@@ -270,6 +272,18 @@ tui_start()
 
 
     clear
+
+
+
+    if ! declare -f screen_main >/dev/null 2>&1; then
+
+        log_error \
+            "Главный экран TUI отсутствует"
+
+        exit 1
+
+    fi
+
 
 
     screen_main
