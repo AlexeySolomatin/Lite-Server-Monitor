@@ -5,112 +5,77 @@
 # Путь: lib/installer/modules.sh
 # ==============================================================================
 
-
 set -Eeuo pipefail
-
 
 [[ -n "${LSM_MODULES_LOADED:-}" ]] && return 0
 readonly LSM_MODULES_LOADED=1
 
-
-
 #
-# Paths
+# Пути (безопасная инициализация без перезаписи readonly-переменной)
 #
 
-LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+fi
 
 LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
-
 LSM_STATE_DIR="${LSM_STATE_DIR:-/var/lib/lsm}"
-
 LSM_MODULE_STATE_DIR="${LSM_MODULE_STATE_DIR:-${LSM_STATE_DIR}/modules}"
 
-
-
 #
-# Module exists
+# Проверка существования модуля
 #
 
 modules_exists()
 {
-
     local module="${1:-}"
 
-
     [[ -n "${module}" ]] || return 1
-
-
     [[ -d "${LSM_MODULES_DIR}/${module}" ]]
-
 }
 
-
-
 #
-# Module path
+# Путь к модулю
 #
 
 modules_path()
 {
-
     local module="$1"
 
-
     echo "${LSM_MODULES_DIR}/${module}"
-
 }
 
-
-
 #
-# State
+# Состояние установки
 #
 
 modules_is_installed()
 {
-
     local module="$1"
 
-
     [[ -f "${LSM_MODULE_STATE_DIR}/${module}.installed" ]]
-
 }
-
-
 
 modules_mark_installed()
 {
-
     local module="$1"
-
 
     mkdir -p "${LSM_MODULE_STATE_DIR}"
 
-
-
     date '+%Y-%m-%d %H:%M:%S' \
         > "${LSM_MODULE_STATE_DIR}/${module}.installed"
-
 }
-
-
 
 modules_clear_state()
 {
-
     local module="$1"
-
 
     rm -f \
         "${LSM_MODULE_STATE_DIR}/${module}.installed"
-
 }
 
-
-
 #
-# Install
+# Установка модуля
 #
 
 modules_install()
@@ -158,10 +123,8 @@ modules_install()
     return 0
 }
 
-
-
 #
-# Remove
+# Удаление модуля
 #
 
 modules_remove()
@@ -198,122 +161,74 @@ modules_remove()
     return 0
 }
 
-
 #
-# Enable
+# Включение модуля
 #
 
 modules_enable()
 {
-
     local module="$1"
-
     local module_dir
 
     module_dir="$(modules_path "${module}")"
 
-
-
     if [[ -x "${module_dir}/enable.sh" ]]; then
-
         "${module_dir}/enable.sh"
-
     else
-
-        log_warn \
-            "enable.sh отсутствует: ${module}"
-
+        log_warn "enable.sh отсутствует или не исполняемый: ${module}"
     fi
-
 }
 
-
-
 #
-# Disable
+# Отключение модуля
 #
 
 modules_disable()
 {
-
     local module="$1"
-
     local module_dir
 
     module_dir="$(modules_path "${module}")"
 
-
-
     if [[ -x "${module_dir}/disable.sh" ]]; then
-
         "${module_dir}/disable.sh"
-
     else
-
-        log_warn \
-            "disable.sh отсутствует: ${module}"
-
+        log_warn "disable.sh отсутствует или не исполняемый: ${module}"
     fi
-
 }
 
-
-
 #
-# Status
+# Статус модуля
 #
 
 modules_status()
 {
-
     local module="$1"
 
-
-
     echo
-
-    echo "Модуль:"
-    echo "${module}"
-
-
+    echo "Модуль: ${module}"
 
     if modules_is_installed "${module}"; then
-
         echo "Статус: установлен"
-
-        echo "Дата установки:"
-
-        cat \
-        "${LSM_MODULE_STATE_DIR}/${module}.installed"
-
+        echo -n "Дата установки: "
+        cat "${LSM_MODULE_STATE_DIR}/${module}.installed"
     else
-
         echo "Статус: не установлен"
-
     fi
 
-
-
     echo
-
 }
 
-
-
 #
-# Installed list
+# Список установленных модулей
 #
 
 modules_installed_list()
 {
-
     [[ -d "${LSM_MODULE_STATE_DIR}" ]] || return 0
-
-
 
     find "${LSM_MODULE_STATE_DIR}" \
         -name "*.installed" \
         -printf "%f\n" \
         | sed 's/.installed$//'
-
 }
