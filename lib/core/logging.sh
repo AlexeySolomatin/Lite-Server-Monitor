@@ -7,17 +7,36 @@
 
 set -Eeuo pipefail
 
-# Уровень логирования по умолчанию:
-# 0 = ERROR
-# 1 = WARN
-# 2 = INFO / SUCCESS
-# 3 = DEBUG
+#
+# Уровень логирования:
+# ERROR = 0
+# WARN  = 1
+# INFO  = 2
+# DEBUG = 3
+#
 
-: "${LOG_LEVEL:=2}"
+: "${LOG_LEVEL:=INFO}"
 : "${LSM_LOG_DIR:=/var/log/lsm}"
 : "${LSM_LOG_FILE:=${LSM_LOG_DIR}/lsm.log}"
 
-# Цветовые коды по умолчанию (если не объявлены в окружении)
+#
+# Преобразование строкового уровня в числовой
+#
+
+case "${LOG_LEVEL^^}" in
+    ERROR) LOG_LEVEL=0 ;;
+    WARN|WARNING) LOG_LEVEL=1 ;;
+    INFO) LOG_LEVEL=2 ;;
+    DEBUG) LOG_LEVEL=3 ;;
+    ''|*[!0-9]*)
+        LOG_LEVEL=2
+        ;;
+esac
+
+#
+# Цветовые коды по умолчанию
+#
+
 : "${COLOR_RED:=\033[0;31m}"
 : "${COLOR_GREEN:=\033[0;32m}"
 : "${COLOR_YELLOW:=\033[0;33m}"
@@ -25,11 +44,13 @@ set -Eeuo pipefail
 : "${COLOR_MAGENTA:=\033[0;35m}"
 : "${COLOR_RESET:=\033[0m}"
 
-_timestamp() {
+_timestamp()
+{
     date '+%Y-%m-%d %H:%M:%S'
 }
 
-_log() {
+_log()
+{
     local level="$1"
     local color="$2"
     local label="$3"
@@ -43,7 +64,6 @@ _log() {
     local ts
     ts="$(_timestamp)"
 
-    # Форматирование для вывода в консоль (с цветовым выделением)
     local console_out
     console_out=$(printf "%b%s [%-7s] [%s]%b %s\n" \
         "${color}" \
@@ -53,24 +73,28 @@ _log() {
         "${COLOR_RESET}" \
         "${message}")
 
-    # Вывод в stdout/stderr
     if [[ "${label}" == "ERROR" ]]; then
         echo -e "${console_out}" >&2
     else
         echo -e "${console_out}"
     fi
 
-    # Дублирование записи в файл лога /var/log/lsm/lsm.log (без ANSI-кодов)
     if [[ -d "${LSM_LOG_DIR}" || -w "/var/log" ]]; then
         mkdir -p "${LSM_LOG_DIR}" 2>/dev/null || true
+
         local plain_entry
-        plain_entry=$(printf "%s [%-7s] [%s] %s\n" "${ts}" "${label}" "${component}" "${message}")
+        plain_entry=$(printf "%s [%-7s] [%s] %s\n" \
+            "${ts}" \
+            "${label}" \
+            "${component}" \
+            "${message}")
+
         echo "${plain_entry}" >> "${LSM_LOG_FILE}" 2>/dev/null || true
     fi
 }
 
-# Вспомогательный разбор аргументов: [компонент] сообщение ИЛИ сообщение
-_parse_log_args() {
+_parse_log_args()
+{
     local level="$1"
     local color="$2"
     local label="$3"
@@ -90,22 +114,27 @@ _parse_log_args() {
     _log "${level}" "${color}" "${label}" "${component}" "${message}"
 }
 
-log_error() {
+log_error()
+{
     _parse_log_args 0 "${COLOR_RED}" "ERROR" "$@"
 }
 
-log_warn() {
+log_warn()
+{
     _parse_log_args 1 "${COLOR_YELLOW}" "WARN" "$@"
 }
 
-log_info() {
+log_info()
+{
     _parse_log_args 2 "${COLOR_BLUE}" "INFO" "$@"
 }
 
-log_success() {
+log_success()
+{
     _parse_log_args 2 "${COLOR_GREEN}" "SUCCESS" "$@"
 }
 
-log_debug() {
+log_debug()
+{
     _parse_log_args 3 "${COLOR_MAGENTA}" "DEBUG" "$@"
 }
