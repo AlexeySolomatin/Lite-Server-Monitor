@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Главный контроллер TUI интерфейса
+# Главный контроллер TUI-интерфейса
 # Путь: lib/tui/tui.sh
 # ==============================================================================
 
@@ -11,13 +11,13 @@ set -Eeuo pipefail
 readonly LSM_TUI_LOADED=1
 
 #
-# Root
+# Корень репозитория / системы
 #
 
 export LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 #
-# Core
+# Подключение библиотек ядра
 #
 
 source "${LSM_ROOT}/lib/core/common.sh"
@@ -26,7 +26,7 @@ source "${LSM_ROOT}/lib/core/logging.sh"
 source "${LSM_ROOT}/lib/core/ui.sh"
 
 #
-# Installer API
+# API инсталлятора
 #
 
 source "${LSM_ROOT}/lib/installer/module_loader.sh"
@@ -35,13 +35,13 @@ source "${LSM_ROOT}/lib/installer/registry.sh"
 source "${LSM_ROOT}/lib/installer/modules.sh"
 
 #
-# Paths
+# Пути к компонентам TUI
 #
 
 readonly LSM_TUI_DIR="${LSM_ROOT}/lib/tui"
 
 #
-# Safe source
+# Безопасная загрузка файлов
 #
 
 load_tui_file()
@@ -58,7 +58,7 @@ load_tui_file()
 }
 
 #
-# API check
+# Проверка наличия необходимых функций API
 #
 
 tui_check_dependencies()
@@ -76,7 +76,7 @@ tui_check_dependencies()
 
     for func in "${required_functions[@]}"; do
         if ! declare -f "${func}" >/dev/null 2>&1; then
-            log_error "Отсутствует API TUI: ${func}"
+            log_error "Отсутствует необходимый метод API TUI: ${func}"
             return 1
         fi
     done
@@ -85,7 +85,7 @@ tui_check_dependencies()
 }
 
 #
-# Load screen
+# Загрузка экранов
 #
 
 load_tui_screen()
@@ -97,7 +97,7 @@ load_tui_screen()
 }
 
 #
-# Load components
+# Загрузка визуальных компонентов
 #
 
 load_tui_components()
@@ -132,14 +132,19 @@ load_tui_components()
 }
 
 #
-# Init
+# Инициализация и проверка окружения TUI
 #
 
 tui_init()
 {
-    if ! command -v dialog >/dev/null 2>&1; then
-        log_error "Не установлен пакет dialog."
-        log_info "Установите: apt install dialog"
+    # Определение доступной утилиты отрисовки диалогов (dialog -> whiptail)
+    if command -v dialog >/dev/null 2>&1; then
+        export DIALOG_BIN="dialog"
+    elif command -v whiptail >/dev/null 2>&1; then
+        export DIALOG_BIN="whiptail"
+    else
+        log_error "Не найдена утилита для отрисовки TUI (dialog или whiptail)."
+        log_info "Установите один из пакетов: apt install dialog (или whiptail)"
         return 1
     fi
 
@@ -152,7 +157,7 @@ tui_init()
 }
 
 #
-# Start
+# Запуск TUI интерфейса
 #
 
 tui_start()
@@ -178,7 +183,7 @@ tui_start()
 }
 
 #
-# Standalone
+# Автономный запуск
 #
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
