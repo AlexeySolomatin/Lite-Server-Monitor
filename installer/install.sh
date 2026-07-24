@@ -22,7 +22,13 @@ source "${LSM_ROOT}/lib/installer/deploy.sh"
 # shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/packages.sh"
 # shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/installer/module_loader.sh"
+# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/registry.sh"
+# shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/installer/modules.sh"
+# shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/installer/module_validator.sh"
 
 # 3. Инициализация версии проекта
 if [[ -f "${LSM_ROOT}/VERSION" ]]; then
