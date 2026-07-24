@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Metadata Loader API v1.0
-#
-# Путь:
-# lib/installer/module_loader.sh
+# Module Metadata Loader API v1.1
+# Путь: lib/installer/module_loader.sh
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -138,15 +136,13 @@ module_loader_list()
 
 
 
-    {
-        find "${LSM_MODULES_DIR}" \
-            -mindepth 1 \
-            -maxdepth 1 \
-            -type d \
-            -printf "%f\n" \
-            2>/dev/null || true
-
-    } | sort
+    find "${LSM_MODULES_DIR}" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type d \
+        -printf "%f\n" \
+        2>/dev/null \
+        | sort
 
 }
 
@@ -159,7 +155,7 @@ module_loader_list()
 module_get_name()
 {
 
-    local module="$1"
+    local module="${1:-}"
 
 
     if module_load_manifest "${module}"; then
@@ -179,12 +175,16 @@ module_get_name()
 module_get_description()
 {
 
-    local module="$1"
+    local module="${1:-}"
 
 
     if module_load_manifest "${module}"; then
 
         echo "${MODULE_DESCRIPTION:-}"
+
+    else
+
+        echo ""
 
     fi
 
@@ -195,12 +195,16 @@ module_get_description()
 module_get_version()
 {
 
-    local module="$1"
+    local module="${1:-}"
 
 
     if module_load_manifest "${module}"; then
 
         echo "${MODULE_VERSION:-unknown}"
+
+    else
+
+        echo "unknown"
 
     fi
 
@@ -211,12 +215,16 @@ module_get_version()
 module_get_category()
 {
 
-    local module="$1"
+    local module="${1:-}"
 
 
     if module_load_manifest "${module}"; then
 
         echo "${MODULE_CATEGORY:-unknown}"
+
+    else
+
+        echo "unknown"
 
     fi
 
@@ -227,12 +235,16 @@ module_get_category()
 module_get_dependencies()
 {
 
-    local module="$1"
+    local module="${1:-}"
 
 
     if module_load_manifest "${module}"; then
 
         echo "${MODULE_DEPENDENCIES:-}"
+
+    else
+
+        echo ""
 
     fi
 
@@ -247,7 +259,10 @@ module_get_dependencies()
 module_has_manifest()
 {
 
-    local module="$1"
+    local module="${1:-}"
+
+
+    [[ -n "${module}" ]] || return 1
 
 
     [[ -f "${LSM_MODULES_DIR}/${module}/manifest.conf" ]]
@@ -263,8 +278,7 @@ module_has_manifest()
 module_validate()
 {
 
-    local module="$1"
-
+    local module="${1:-}"
 
     local module_dir="${LSM_MODULES_DIR}/${module}"
 
@@ -305,7 +319,7 @@ module_validate()
 module_info()
 {
 
-    local module="$1"
+    local module="${1:-}"
 
 
 
