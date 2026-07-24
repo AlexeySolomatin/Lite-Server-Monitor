@@ -51,6 +51,16 @@ registry_add()
 
 
 
+    if ! declare -f module_has_manifest >/dev/null 2>&1; then
+
+        log_error "API module_loader недоступен."
+
+        return 1
+
+    fi
+
+
+
     if ! module_has_manifest "${module}"; then
 
         log_warn \
@@ -62,20 +72,27 @@ registry_add()
 
 
 
-    module_load_manifest "${module}"
+    if ! module_load_manifest "${module}"; then
+
+        log_warn \
+            "Модуль ${module}: ошибка загрузки manifest.conf"
+
+        return 1
+
+    fi
 
 
 
     LSM_MODULES+=("${module}")
 
 
-    LSM_MODULE_NAME["${module}"]="${MODULE_NAME}"
+    LSM_MODULE_NAME["${module}"]="${MODULE_NAME:-${module}}"
 
-    LSM_MODULE_DESCRIPTION["${module}"]="${MODULE_DESCRIPTION}"
+    LSM_MODULE_DESCRIPTION["${module}"]="${MODULE_DESCRIPTION:-}"
 
-    LSM_MODULE_VERSION["${module}"]="${MODULE_VERSION}"
+    LSM_MODULE_VERSION["${module}"]="${MODULE_VERSION:-unknown}"
 
-    LSM_MODULE_CATEGORY["${module}"]="${MODULE_CATEGORY}"
+    LSM_MODULE_CATEGORY["${module}"]="${MODULE_CATEGORY:-unknown}"
 
     LSM_MODULE_DEPENDENCIES["${module}"]="${MODULE_DEPENDENCIES:-}"
 
@@ -104,7 +121,7 @@ registry_scan()
         [[ -z "${module}" ]] && continue
 
 
-        registry_add "${module}"
+        registry_add "${module}" || true
 
 
     done < <(
@@ -114,6 +131,7 @@ registry_scan()
             -maxdepth 1 \
             -type d \
             -printf "%f\n" \
+            2>/dev/null \
             | sort
 
     )
@@ -185,23 +203,23 @@ registry_info()
 
 cat <<EOF
 
-Module:
+Модуль:
 ${module}
 
-Name:
+Название:
 ${LSM_MODULE_NAME[$module]}
 
-Description:
+Описание:
 ${LSM_MODULE_DESCRIPTION[$module]}
 
-Version:
+Версия:
 ${LSM_MODULE_VERSION[$module]}
 
-Category:
+Категория:
 ${LSM_MODULE_CATEGORY[$module]}
 
-Dependencies:
-${LSM_MODULE_DEPENDENCIES[$module]:-none}
+Зависимости:
+${LSM_MODULE_DEPENDENCIES[$module]:-нет}
 
 EOF
 
@@ -236,6 +254,17 @@ registry_check_dependencies()
 
 
 
+    if ! registry_exists "${module}"; then
+
+        log_error \
+            "Модуль ${module} отсутствует в registry."
+
+        return 1
+
+    fi
+
+
+
     local deps
 
     deps=$(registry_dependencies "${module}")
@@ -260,6 +289,9 @@ registry_check_dependencies()
 
     done
 
+
+
+    return 0
 
 }
 
