@@ -115,77 +115,47 @@ modules_clear_state()
 
 modules_install()
 {
-
     local module="${1:-}"
 
-
-
-    if [[ -z "${module}" ]]; then
-
-        log_error \
-            "Имя модуля не указано"
-
+    [[ -n "${module}" ]] || {
+        log_error "Имя модуля не указано"
         return 1
-
-    fi
-
-
+    }
 
     if ! modules_exists "${module}"; then
-
-        log_error \
-            "Модуль не найден: ${module}"
-
+        log_error "Модуль не найден: ${module}"
         return 1
-
     fi
-
-
 
     if modules_is_installed "${module}"; then
-
-        log_warn \
-            "Модуль уже установлен: ${module}"
-
+        log_warn "Модуль уже установлен: ${module}"
         return 0
-
     fi
-
-
 
     local module_dir
-
     module_dir="$(modules_path "${module}")"
 
+    local installer="${module_dir}/install.sh"
 
-
-    log_info \
-        "Установка модуля: ${module}"
-
-
-
-    if [[ ! -x "${module_dir}/install.sh" ]]; then
-
-        log_error \
-            "Отсутствует install.sh: ${module}"
-
+    if [[ ! -f "${installer}" ]]; then
+        log_error "install.sh отсутствует: ${module}"
         return 1
-
     fi
 
+    chmod +x "${installer}"
 
+    log_info "Установка модуля: ${module}"
 
-    "${module_dir}/install.sh"
-
-
+    if ! bash "${installer}"; then
+        log_error "Установка завершилась ошибкой: ${module}"
+        return 1
+    fi
 
     modules_mark_installed "${module}"
 
+    log_success "Модуль установлен: ${module}"
 
-
-    log_success \
-        "Модуль установлен: ${module}"
-
+    return 0
 }
 
 
@@ -196,53 +166,37 @@ modules_install()
 
 modules_remove()
 {
-
     local module="${1:-}"
 
-
-
     if ! modules_exists "${module}"; then
-
-        log_error \
-            "Модуль не найден: ${module}"
-
+        log_error "Модуль не найден: ${module}"
         return 1
-
     fi
-
-
 
     local module_dir
-
     module_dir="$(modules_path "${module}")"
 
+    local uninstall="${module_dir}/uninstall.sh"
 
+    if [[ -f "${uninstall}" ]]; then
+        chmod +x "${uninstall}"
 
-    if [[ -x "${module_dir}/uninstall.sh" ]]; then
+        log_info "Удаление модуля: ${module}"
 
-        log_info \
-            "Удаление модуля: ${module}"
-
-        "${module_dir}/uninstall.sh"
-
+        if ! bash "${uninstall}"; then
+            log_error "Ошибка удаления: ${module}"
+            return 1
+        fi
     else
-
-        log_warn \
-            "uninstall.sh отсутствует: ${module}"
-
+        log_warn "uninstall.sh отсутствует: ${module}"
     fi
-
-
 
     modules_clear_state "${module}"
 
+    log_success "Модуль удален: ${module}"
 
-
-    log_success \
-        "Модуль удален: ${module}"
-
+    return 0
 }
-
 
 
 #
