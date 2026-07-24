@@ -5,7 +5,6 @@
 # Путь: lib/installer/module_validator.sh
 # ==============================================================================
 
-
 set -Eeuo pipefail
 
 
@@ -139,7 +138,14 @@ module_validate_dependencies()
 
 
 
-    module_load_manifest "${module}" || return 1
+    if ! module_load_manifest "${module}"; then
+
+        log_error \
+            "Модуль ${module}: невозможно проверить зависимости"
+
+        return 1
+
+    fi
 
 
 
@@ -154,10 +160,10 @@ module_validate_dependencies()
     for dependency in ${dependencies}
     do
 
-        if [[ ! -d "${LSM_MODULES_DIR}/${dependency}" ]]; then
+        if ! declare -f module_has_manifest >/dev/null 2>&1; then
 
             log_error \
-                "Модуль ${module}: отсутствует зависимость ${dependency}"
+                "API module_loader недоступен"
 
             return 1
 
@@ -168,7 +174,7 @@ module_validate_dependencies()
         if ! module_has_manifest "${dependency}"; then
 
             log_error \
-                "Зависимость ${dependency}: отсутствует manifest.conf"
+                "Модуль ${module}: отсутствует зависимость ${dependency}"
 
             return 1
 
