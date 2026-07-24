@@ -335,26 +335,24 @@ registry_resolve_order()
 
 registry_resolve_module()
 {
-
     local module="$1"
     local __array_name="$2"
 
     [[ -n "${module}" ]] || return 1
 
     if ! registry_exists "${module}"; then
-
-        log_error \
-            "Модуль ${module} отсутствует в registry."
-
+        log_error "Модуль ${module} отсутствует в registry."
         return 1
-
     fi
 
-    # Уже добавлен?
+    local current
+    eval "current=(\"\${${__array_name}[@]}\")"
+
     local item
-    eval "for item in \"\${${__array_name}[@]}\"; do
-        [[ \"\$item\" == \"${module}\" ]] && return 0
-    done"
+    for item in "${current[@]}"
+    do
+        [[ "${item}" == "${module}" ]] && return 0
+    done
 
     local deps
     deps="$(registry_dependencies "${module}")"
@@ -363,12 +361,11 @@ registry_resolve_module()
         local dep
         for dep in ${deps}
         do
-            registry_resolve_module \
-                "${dep}" \
-                "${__array_name}" || return 1
+            registry_resolve_module "${dep}" "${__array_name}" || return 1
         done
     fi
 
-    eval "${__array_name}+=(\"${module}\")"
+    eval "${__array_name}+=(\"\${module}\")"
 
+    return 0
 }
