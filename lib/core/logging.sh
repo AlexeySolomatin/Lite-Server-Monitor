@@ -7,19 +7,77 @@
 
 set -Eeuo pipefail
 
+
 [[ -n "${LSM_LOGGING_LOADED:-}" ]] && return 0
 readonly LSM_LOGGING_LOADED=1
 
+
+
 #
-# Настройки по умолчанию
+# Настройки логирования
+#
+# Уровни:
+#
+# 0 ERROR
+# 1 WARN
+# 2 INFO
+# 3 DEBUG
 #
 
-: "${LOG_LEVEL:=INFO}"
+: "${LOG_LEVEL:=2}"
+
 : "${LSM_LOG_DIR:=/var/log/lsm}"
 : "${LSM_LOG_FILE:=${LSM_LOG_DIR}/lsm.log}"
 
+
+
 #
-# Цветовые коды по умолчанию
+# Нормализация LOG_LEVEL
+#
+# Поддержка:
+# INFO
+# WARN
+# ERROR
+# DEBUG
+# 0-3
+#
+
+case "${LOG_LEVEL^^}" in
+
+    ERROR)
+        LOG_LEVEL=0
+        ;;
+
+    WARN|WARNING)
+        LOG_LEVEL=1
+        ;;
+
+    INFO)
+        LOG_LEVEL=2
+        ;;
+
+    DEBUG)
+        LOG_LEVEL=3
+        ;;
+
+esac
+
+
+
+#
+# Проверка значения
+#
+
+if ! [[ "${LOG_LEVEL}" =~ ^[0-3]$ ]]; then
+
+    LOG_LEVEL=2
+
+fi
+
+
+
+#
+# Цвета
 #
 
 : "${COLOR_RED:=\033[0;31m}"
@@ -29,40 +87,50 @@ readonly LSM_LOGGING_LOADED=1
 : "${COLOR_MAGENTA:=\033[0;35m}"
 : "${COLOR_RESET:=\033[0m}"
 
+
+
+#
+# Время
+#
+
 _timestamp()
 {
     date '+%Y-%m-%d %H:%M:%S'
 }
 
+
+
+#
+# Внутренний вывод
+#
+
 _log()
 {
+
     local level="$1"
     local color="$2"
     local label="$3"
     local component="$4"
     local message="$5"
 
-    # Безопасное определение текущего числового уровня (защита от set -u)
-    local current_level_str="${LOG_LEVEL:-INFO}"
-    local current_numeric_level=2
 
-    case "${current_level_str^^}" in
-        0|ERROR)        current_numeric_level=0 ;;
-        1|WARN|WARNING) current_numeric_level=1 ;;
-        2|INFO)        current_numeric_level=2 ;;
-        3|DEBUG)       current_numeric_level=3 ;;
-        *)             current_numeric_level=2 ;;
-    esac
 
-    # Проверка порога логирования
-    if (( current_numeric_level < level )); then
+    if (( LOG_LEVEL < level )); then
+
         return 0
+
     fi
 
+
+
     local ts
+
     ts="$(_timestamp)"
 
+
+
     local console_out
+
     console_out=$(printf "%b%s [%-7s] [%s]%b %s\n" \
         "${color}" \
         "${ts}" \
@@ -71,68 +139,147 @@ _log()
         "${COLOR_RESET}" \
         "${message}")
 
+
+
     if [[ "${label}" == "ERROR" ]]; then
+
         echo -e "${console_out}" >&2
+
     else
+
         echo -e "${console_out}"
+
     fi
 
-    if [[ -d "${LSM_LOG_DIR}" || -w "/var/log" ]]; then
-        mkdir -p "${LSM_LOG_DIR}" 2>/dev/null || true
 
-        local plain_entry
-        plain_entry=$(printf "%s [%-7s] [%s] %s\n" \
-            "${ts}" \
-            "${label}" \
-            "${component}" \
-            "${message}")
 
-        echo "${plain_entry}" >> "${LSM_LOG_FILE}" 2>/dev/null || true
-    fi
+    #
+    # Запись файла
+    #
+
+    mkdir -p "${LSM_LOG_DIR}" 2>/dev/null || true
+
+
+    local plain_entry
+
+    plain_entry=$(printf "%s [%-7s] [%s] %s\n" \
+        "${ts}" \
+        "${label}" \
+        "${component}" \
+        "${message}")
+
+
+    echo "${plain_entry}" >> "${LSM_LOG_FILE}" 2>/dev/null || true
+
 }
+
+
+
+#
+# Разбор аргументов
+#
+# Варианты:
+#
+# log_info "message"
+#
+# log_info MODULE "message"
+#
 
 _parse_log_args()
 {
+
     local level="$1"
     local color="$2"
     local label="$3"
+
     shift 3
+
 
     local component="SYSTEM"
     local message=""
 
+
+
     if [[ $# -ge 2 ]]; then
+
         component="$1"
         shift
+
         message="$*"
+
+
     elif [[ $# -eq 1 ]]; then
+
         message="$1"
+
     fi
 
-    _log "${level}" "${color}" "${label}" "${component}" "${message}"
+
+
+    _log \
+        "${level}" \
+        "${color}" \
+        "${label}" \
+        "${component}" \
+        "${message}"
+
 }
+
+
+
+#
+# Public API
+#
 
 log_error()
 {
-    _parse_log_args 0 "${COLOR_RED}" "ERROR" "$@"
+    _parse_log_args \
+        0 \
+        "${COLOR_RED}" \
+        "ERROR" \
+        "$@"
 }
+
+
 
 log_warn()
 {
-    _parse_log_args 1 "${COLOR_YELLOW}" "WARN" "$@"
+    _parse_log_args \
+        1 \
+        "${COLOR_YELLOW}" \
+        "WARN" \
+        "$@"
 }
+
+
 
 log_info()
 {
-    _parse_log_args 2 "${COLOR_BLUE}" "INFO" "$@"
+    _parse_log_args \
+        2 \
+        "${COLOR_BLUE}" \
+        "INFO" \
+        "$@"
 }
+
+
 
 log_success()
 {
-    _parse_log_args 2 "${COLOR_GREEN}" "SUCCESS" "$@"
+    _parse_log_args \
+        2 \
+        "${COLOR_GREEN}" \
+        "SUCCESS" \
+        "$@"
 }
+
+
 
 log_debug()
 {
-    _parse_log_args 3 "${COLOR_MAGENTA}" "DEBUG" "$@"
+    _parse_log_args \
+        3 \
+        "${COLOR_MAGENTA}" \
+        "DEBUG" \
+        "$@"
 }
