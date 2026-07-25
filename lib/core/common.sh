@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Базовое окружение и системные переменные
+# Базовое окружение и общие системные переменные
 # Путь: lib/core/common.sh
 # ==============================================================================
 
@@ -27,13 +27,15 @@ fi
 
 export LSM_ROOT
 export PROJECT_ROOT="${LSM_ROOT}"
+
+
+
+#
+# Project metadata
+#
+
 export PROJECT_NAME="Lite Server Monitor"
 
-
-
-#
-# Версия
-#
 
 if [[ -f "${LSM_ROOT}/VERSION" ]]; then
 
@@ -51,7 +53,7 @@ export PROJECT_VERSION
 
 
 #
-# Пути системы
+# System paths
 #
 
 export LSM_CONFIG_DIR="${LSM_CONFIG_DIR:-/etc/lsm}"
@@ -63,6 +65,7 @@ export LSM_DATA_DIR="${LSM_DATA_DIR:-/var/lib/lsm}"
 #
 # Helpers
 #
+
 
 is_root()
 {
@@ -79,12 +82,13 @@ check_root()
         if declare -f log_error >/dev/null 2>&1; then
 
             log_error \
-                "Скрипт должен быть запущен от root"
+                "SYSTEM" \
+                "Скрипт должен быть запущен с правами root."
 
         else
 
             echo \
-                "Ошибка: требуется root" >&2
+                "Ошибка: требуется root." >&2
 
         fi
 
@@ -116,7 +120,9 @@ is_supported_os()
     case "${ID:-}" in
 
         debian|ubuntu|linuxmint|pop)
+
             return 0
+
             ;;
 
     esac
@@ -135,6 +141,12 @@ has_internet()
         -c 1 \
         -W 2 \
         1.1.1.1 \
+        >/dev/null 2>&1 \
+    ||
+    ping \
+        -c 1 \
+        -W 2 \
+        8.8.8.8 \
         >/dev/null 2>&1
 
 }
