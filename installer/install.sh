@@ -125,7 +125,7 @@ for step_script in "${STEPS[@]}"; do
     fi
 done
 
-# 9. Создание глобального симлинка бинарника
+# 9. Создание глобального симлинка бинарника!
 deploy_create_symlink "${LSM_ROOT}/bin/lsm" "/usr/local/bin/lsm"
 
 echo
