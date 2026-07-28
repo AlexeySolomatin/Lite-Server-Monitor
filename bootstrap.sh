@@ -25,7 +25,7 @@ echo "Lite Server Monitor Bootstrap"
 echo
 
 #
-# Запуск основного установщика
+# Запуск основного установщика!
 #
 
 if [[ "${EUID}" -ne 0 ]]; then
