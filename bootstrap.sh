@@ -50,7 +50,7 @@ else
 fi
 
 #
-# Fix execution permissions
+# Исправляем права доступа
 #
 
 chmod -R +x "${SOURCE_DIR}"
