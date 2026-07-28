@@ -1,0 +1,31 @@
+name: Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main  # Если ветка называется master, укажите master
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Чеккаут кода (со всеми тегами и историей)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Расчет и запись новой версии
+        run: |
+          chmod +x ./lib/installer/auto-version.sh
+          ./lib/installer/auto-version.sh
+
+      - name: Пуш файла VERSION и создание Git-тега
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(release): bump version [skip ci]"
+          file_pattern: 'VERSION'
+          tagging_message: 'v$(cat VERSION)'
