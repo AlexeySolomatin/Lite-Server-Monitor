@@ -56,7 +56,7 @@ fi
 chmod -R +x "${SOURCE_DIR}"
 
 #
-# Run main installer
+# Запуск основного установщм=ика
 #
 
 echo
