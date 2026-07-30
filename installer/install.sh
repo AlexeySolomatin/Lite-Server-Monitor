@@ -7,92 +7,212 @@
 
 set -Eeuo pipefail
 
-# 1. Определение путей и экспорт окружения
+
+
+#
+# Пути проекта
+#
+
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LSM_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
-export LSM_ROOT INSTALLER_DIR
 
-# 2. Загрузка библиотек ядра и деплоя
-# shellcheck source=/dev/null
+export LSM_ROOT
+export INSTALLER_DIR
+
+
+
+#
+# Загрузка библиотек
+#
+
 source "${LSM_ROOT}/lib/core/common.sh"
-# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/core/ui.sh"
-# shellcheck source=/dev/null
+
 source "${LSM_ROOT}/lib/installer/deploy.sh"
-# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/packages.sh"
-# shellcheck source=/dev/null
+
 source "${LSM_ROOT}/lib/installer/module_loader.sh"
-# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/registry.sh"
-# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/modules.sh"
-# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/module_validator.sh"
 
-# 3. Инициализация версии проекта
+
+
+#
+# Компонент
+#
+
+readonly INSTALL_COMPONENT="INSTALLER"
+
+
+
+#
+# Версия
+#
+
 if [[ -f "${LSM_ROOT}/VERSION" ]]; then
+
     PROJECT_VERSION="$(tr -d '\r\n' < "${LSM_ROOT}/VERSION")"
+
 else
-    PROJECT_VERSION="${PROJECT_VERSION:-1.0.0}"
+
+    PROJECT_VERSION="${PROJECT_VERSION:-0.1.0}"
+
 fi
+
 export PROJECT_VERSION
 
-# 4. Перехват ошибок
-trap_install_error() {
+
+
+#
+# Обработка ошибок
+#
+
+trap_install_error()
+{
     local exit_code=$?
     local line_no=$1
+
+
     echo
-    log_error "Критическая ошибка во время установки на строке ${line_no} (код ответа: ${exit_code})."
-    log_error "Установка Lite Server Monitor прервана."
+
+
+    log_error "${INSTALL_COMPONENT}" \
+        "Критическая ошибка установки. Строка: ${line_no}, код: ${exit_code}"
+
+    log_error "${INSTALL_COMPONENT}" \
+        "Установка Lite Server Monitor прервана."
+
+
     exit "${exit_code}"
 }
+
+
 trap 'trap_install_error $LINENO' ERR
 
-# 5. Проверка прав суперпользователя
-check_root
 
-# 6. Обработка флагов запуска и мастера установки
-NON_INTERACTIVE=false
-if [[ "${1:-}" == "--quiet" || "${1:-}" == "--non-interactive" || "${1:-}" == "-y" ]]; then
-    NON_INTERACTIVE=true
+
+#
+# Проверка root
+#
+
+if declare -f check_root >/dev/null 2>&1; then
+
+    check_root
+
+else
+
+    if [[ "${EUID}" -ne 0 ]]; then
+
+        echo "ERROR: installer requires root privileges."
+        exit 1
+
+    fi
+
 fi
+
+
+
+#
+# Баннер
+#
+
+ui_banner
+
+
+
+#
+# Режим установки
+#
+
+NON_INTERACTIVE=false
+
+
+if [[ "${1:-}" == "--quiet" ||
+      "${1:-}" == "--non-interactive" ||
+      "${1:-}" == "-y" ]]; then
+
+    NON_INTERACTIVE=true
+
+fi
+
+
+
+#
+# Загрузка реестра модулей
+#
 
 registry_load_default
 
-log_info "Зарегистрированные модули:"
-registry_list
 
-if [[ "${NON_INTERACTIVE}" == "false" ]]; then    
+
+if [[ "${NON_INTERACTIVE}" == "false" ]]; then
+
+
     if [[ -f "${INSTALLER_DIR}/wizard.sh" ]]; then
-        # shellcheck source=/dev/null
+
         source "${INSTALLER_DIR}/wizard.sh"
+
         run_install_wizard
+
     fi
+
+
+
 else
-    log_info "Запуск установки в тихом режиме (Unattended mode)..."
-    # Базовые значения для неинтерактивного режима
+
+
+    log_info "${INSTALL_COMPONENT}" \
+        "Запуск установки в автоматическом режиме."
+
+
+
     INSTALL_MODE="${INSTALL_MODE:-full}"
     NOTIFICATION_METHOD="${NOTIFICATION_METHOD:-none}"
-    SELECTED_MODULES=()
+
+    declare -a SELECTED_MODULES=()
 
 
-while read -r module; do
 
-    if [[ "$(registry_default "${module}")" == "yes" ]]; then
+    while read -r module; do
 
-        SELECTED_MODULES+=("${module}")
 
-    fi
+        if [[ "$(registry_default "${module}")" == "yes" ]]; then
 
-done < <(registry_list)
+            SELECTED_MODULES+=("${module}")
+
+        fi
+
+
+    done < <(registry_list)
+
+
+
 fi
 
-# 7. Заголовок и логирование
-ui_banner
-log_info "Запуск установки Lite Server Monitor (LSM) v${PROJECT_VERSION}..."
 
-# 8. Последовательное выполнение шагов
+
+#
+# Старт установки
+#
+
+log_info "${INSTALL_COMPONENT}" \
+    "Запуск Lite Server Monitor v${PROJECT_VERSION}"
+
+
+
+log_info "${INSTALL_COMPONENT}" \
+    "Зарегистрированные модули:"
+
+
+registry_list
+
+
+
+#
+# Шаги установки
+#
+
 STEPS=(
     "01_environment.sh"
     "02_packages.sh"
@@ -104,30 +224,87 @@ STEPS=(
     "08_finish.sh"
 )
 
+
+
 for step_script in "${STEPS[@]}"; do
+
+
     step_path="${INSTALLER_DIR}/steps/${step_script}"
 
-    if [[ -f "${step_path}" ]]; then
-        log_info "Выполнение шага: ${step_script}..."
 
-        # shellcheck source=/dev/null
-        source "${step_path}"
+    if [[ ! -f "${step_path}" ]]; then
 
-        step_func_name="step_$(echo "${step_script}" | sed -E 's/^[0-9]+_//; s/\.sh$//')"
-        if declare -f "${step_func_name}" >/dev/null 2>&1; then
-            "${step_func_name}"
-        else
-            log_warn "Функция '${step_func_name}' не найдена в файле ${step_script}."
-        fi
-    else
-        log_error "Отсутствует обязательный файл шага: ${step_path}"
+
+        log_error "${INSTALL_COMPONENT}" \
+            "Отсутствует обязательный шаг: ${step_path}"
+
+
         exit 1
+
+
     fi
+
+
+
+    log_info "${INSTALL_COMPONENT}" \
+        "Выполнение шага: ${step_script}"
+
+
+
+    source "${step_path}"
+
+
+
+    step_func_name="$(
+        echo "${step_script}" |
+        sed -E 's/^[0-9]+_//; s/\.sh$//'
+    )"
+
+
+    step_func_name="step_${step_func_name}"
+
+
+
+    if declare -f "${step_func_name}" >/dev/null 2>&1; then
+
+
+        "${step_func_name}"
+
+
+    else
+
+
+        log_warn "${INSTALL_COMPONENT}" \
+            "Функция шага отсутствует: ${step_func_name}"
+
+
+    fi
+
+
 done
 
-# 9. Создание глобального симлинка бинарника!
-deploy_create_symlink "${LSM_ROOT}/bin/lsm" "/usr/local/bin/lsm"
+
+
+#
+# Создание CLI ссылки
+#
+
+deploy_create_symlink \
+    "${LSM_ROOT}/bin/lsm" \
+    "/usr/local/bin/lsm"
+
+
+
+#
+# Завершение
+#
 
 echo
-log_success "Установка Lite Server Monitor (LSM) v${PROJECT_VERSION} успешно завершена!"
-log_info "Запустите 'lsm help' для получения списка команд."
+
+
+log_success "${INSTALL_COMPONENT}" \
+    "Lite Server Monitor v${PROJECT_VERSION} успешно установлен."
+
+
+log_info "${INSTALL_COMPONENT}" \
+    "Для справки выполните: lsm help"
