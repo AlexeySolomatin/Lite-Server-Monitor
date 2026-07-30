@@ -150,15 +150,10 @@ step_directories()
     # Базовые права приложения
     #
 
-    find "${target_dir}" \
-        -type d \
-        -exec chmod 755 {} \;
+    find "${target_dir}" -type d -exec chmod 755 {} +
+    find "${target_dir}" -type f -exec chmod 644 {} +
 
-
-
-    find "${target_dir}" \
-        -type f \
-        -exec chmod 644 {} \;
+    find "${target_dir}/modules" -type f -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
 
 
 
@@ -181,6 +176,12 @@ step_directories()
 
 
     find "${target_dir}/commands" \
+        -type f \
+        -name "*.sh" \
+        -exec chmod +x {} \; \
+        2>/dev/null || true
+
+    find "${target_dir}/modules" \
         -type f \
         -name "*.sh" \
         -exec chmod +x {} \; \
