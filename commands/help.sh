@@ -1,80 +1,55 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Справка команд CLI
+# Справка по командам CLI
 # Путь: commands/help.sh
 # ==============================================================================
 
 set -Eeuo pipefail
 
-# Версия системы по умолчанию (если не передана из окружения)
-local version
-version="$(cat "${LSM_ROOT}/VERSION" 2>/dev/null || echo "unknown")"
+#
+# Определение пути к корню и считывание динамической версии
+#
+LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+VERSION_FILE="${LSM_ROOT}/VERSION"
 
-echo "Lite Server Monitor (LSM) v${version}"
+VERSION="unknown"
+if [[ -f "${VERSION_FILE}" ]]; then
+    VERSION="$(tr -d '\r\n' < "${VERSION_FILE}")"
+fi
 
-show_general_help() {
-    cat <<EOF
+#
+# Вывод справочной информации
+#
+cat << EOF
+Lite Server Monitor (LSM) v${VERSION}
+Легковесная система мониторинга серверов Linux
 
-Lite Server Monitor (LSM) v${LSM_VERSION}
-Система мониторинга и защиты Linux-серверов
+ИСПОЛЬЗОВАНИЕ:
+  lsm <команда> [аргументы]
 
-Использование:
-  lsm <команда> [опции]
+ОСНОВНЫЕ КОМАНДЫ:
+  status         Показать текущий статус системы и служб
+  report         Сформировать и вывести сводный отчёт мониторинга
+  modules        Управление модулями мониторинга (список, вкл/выкл)
+  config         Просмотр и изменение настроек LSM
 
-Основные команды:
-  install       Установка компонентов системы
-  uninstall     Полное или частичное удаление LSM
-  update        Обновление компонентов и модулей
-  status        Текущее состояние системы и сервисов
-  doctor        Диагностика и проверка окружения
-  report        Формирование отчетов (daily / manual)
-  config        Управление конфигурационными файлами
-  modules       Управление модулями мониторинга
-  tui           Запуск интерактивного текстового интерфейса
-  version       Показать версию системы
+ДИАГНОСТИКА И ИНТЕРФЕЙС:
+  doctor         Запустить диагностику целостности и окружения LSM
+  tui            Запустить интерактивный текстовый интерфейс (TUI)
 
-Управление модулями:
-  lsm modules list             Список установленных модулей
-  lsm modules available        Список всех доступных модулей
-  lsm modules info <module>    Подробная информация о модуле
-  lsm modules install <module> Установка конкретного модуля
-  lsm modules remove <module>  Удаление модуля
-  lsm modules enable <module>  Включение таймера/сервиса
-  lsm modules disable <module> Отключение таймера/сервиса
+ОБСЛУЖИВАНИЕ И УСТАНОВКА:
+  update         Обновить LSM до последней версии
+  install        Установить или переконфигурировать компоненты LSM
+  uninstall      Удалить LSM и связанные службы из системы
 
-Общие флаги:
-  -h, --help    Показать эту справку
-  -v, --version Показать версию
-  --no-color    Отключить цветной вывод
+СПРАВОЧНЫЕ КОМАНДЫ:
+  version, -v    Показать версию системы
+  help, -h       Показать эту справку
 
-Примеры:
+ПРИМЕРЫ:
   lsm status
-  lsm modules info smart
-  lsm report --send
-
+  lsm doctor
+  lsm tui
+  lsm modules
 EOF
-}
-
-# Если передан конкретный раздел, можно расширить вывод в будущем
-case "${1:-}" in
-    modules)
-        cat <<EOF
-
-Использование: lsm modules <команда> [модуль]
-
-Команды:
-  list                 Вывести список установленных модулей
-  available            Вывести доступные для установки модули
-  info <module>        Детальная информация, статус и параметры
-  install <module>     Установить выбранный модуль
-  remove <module>      Удалить выбранный модуль
-  enable <module>      Активировать systemd-таймер модуля
-  disable <module>     Деактивировать systemd-таймер модуля
-
-EOF
-        ;;
-    *)
-        show_general_help
-        ;;
-esac
