@@ -8,7 +8,10 @@
 set -Eeuo pipefail
 
 # Версия системы по умолчанию (если не передана из окружения)
-LSM_VERSION="${LSM_VERSION:-0.1.3-alpha}"
+local version
+version="$(cat "${LSM_ROOT}/VERSION" 2>/dev/null || echo "unknown")"
+
+echo "Lite Server Monitor (LSM) v${version}"
 
 show_general_help() {
     cat <<EOF
