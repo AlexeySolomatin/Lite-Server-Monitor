@@ -3,28 +3,175 @@
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
 # Installation Step 08 - Finish
+# Path: installer/steps/08_finish.sh
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
-# Определение корня и подгрузка библиотек ядра
+
+#
+# Environment
+#
+
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
 export LSM_ROOT
 
-if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/common.sh"; fi
-if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
 
-step_finish() {
+
+#
+# Core libraries
+#
+
+source "${LSM_ROOT}/lib/core/common.sh"
+source "${LSM_ROOT}/lib/core/logging.sh"
+source "${LSM_ROOT}/lib/core/ui.sh"
+
+
+
+readonly FINISH_COMPONENT="FINISH"
+
+
+
+step_finish()
+{
+
+
     print_section "Installation Summary"
 
-    log_success "Lite Server Monitor (v${PROJECT_VERSION}) has been successfully installed!"
-    log_info "Config path:  /etc/lsm"
-    log_info "Logs path:    /var/log/lsm"
-    log_info "CLI command:  lsm status"
+
+
+    #
+    # Проверка основных компонентов
+    #
+
+    local errors=0
+
+
+
+    if [[ ! -x "/usr/local/bin/lsm" ]]; then
+
+        log_error "${FINISH_COMPONENT}" \
+            "CLI command /usr/local/bin/lsm not found."
+
+        errors=$((errors + 1))
+
+    fi
+
+
+
+    if [[ ! -d "/etc/lsm" ]]; then
+
+        log_error "${FINISH_COMPONENT}" \
+            "Configuration directory missing."
+
+        errors=$((errors + 1))
+
+    fi
+
+
+
+    if [[ ! -d "/var/log/lsm" ]]; then
+
+        log_warn "${FINISH_COMPONENT}" \
+            "Log directory missing."
+
+    fi
+
+
+
+    #
+    # Итог
+    #
+
+    if (( errors > 0 )); then
+
+
+        log_error "${FINISH_COMPONENT}" \
+            "Installation completed with errors: ${errors}"
+
+
+        return 1
+
+
+    fi
+
+
+
+    log_success "${FINISH_COMPONENT}" \
+        "Lite Server Monitor v${PROJECT_VERSION} successfully installed."
+
+
+
+    echo
+
+
+    log_info "${FINISH_COMPONENT}" \
+        "Installation path: ${LSM_ROOT}"
+
+
+    log_info "${FINISH_COMPONENT}" \
+        "Configuration: /etc/lsm"
+
+
+    log_info "${FINISH_COMPONENT}" \
+        "Logs: /var/log/lsm"
+
+
+    log_info "${FINISH_COMPONENT}" \
+        "CLI: lsm status"
+
+
+
+    #
+    # Installed modules
+    #
+
+    if declare -f modules_installed_list >/dev/null 2>&1; then
+
+
+        echo
+
+        log_info "${FINISH_COMPONENT}" \
+            "Installed modules:"
+
+
+        while read -r module; do
+
+            [[ -z "${module}" ]] && continue
+
+            echo " - ${module}"
+
+        done < <(modules_installed_list)
+
+
+
+    fi
+
+
+
+    echo
+
+
+    log_success "${FINISH_COMPONENT}" \
+        "Installation finished."
+
+
 
     return 0
+
 }
 
+
+
+#
+# Standalone execution
+#
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+
+
     step_finish
+
+
 fi
