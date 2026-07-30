@@ -12,6 +12,27 @@ set -Eeuo pipefail
 readonly LSM_DEPLOY_LOADED=1
 
 
+#
+# Гарантированное определение корня и подгрузка логирования
+#
+
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+fi
+
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/logging.sh"
+fi
+
+# Аварийный фоллбэк, если logging.sh не загрузился
+if ! declare -f log_info >/dev/null 2>&1; then
+    log_info()  { printf "[INFO   ] [%s] %s\n" "${1:-}" "${2:-}"; }
+    log_debug() { printf "[DEBUG  ] [%s] %s\n" "${1:-}" "${2:-}"; }
+    log_warn()  { printf "[WARN   ] [%s] %s\n" "${1:-}" "${2:-}"; }
+    log_error() { printf "[ERROR  ] [%s] %s\n" "${1:-}" "${2:-}" >&2; }
+fi
+
 
 readonly DEPLOY_COMPONENT="DEPLOY"
 
