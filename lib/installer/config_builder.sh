@@ -12,7 +12,7 @@ build_lsm_configs() {
     mkdir -p "${target_dir}"
     chmod 755 "${target_dir}"
 
-    # 1. /etc/lsm/config.conf — Общие настройки
+    # 1. /etc/lsm/config.conf — Общие настройки!
     cat <<EOF > "${target_dir}/config.conf"
 # ==============================================================================
 # LSM: Общие настройки системы
