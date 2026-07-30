@@ -25,6 +25,7 @@ export INSTALLER_DIR
 # Загрузка библиотек
 #
 
+source "${LSM_ROOT}/lib/core/logging.sh"
 source "${LSM_ROOT}/lib/core/common.sh"
 source "${LSM_ROOT}/lib/core/ui.sh"
 
