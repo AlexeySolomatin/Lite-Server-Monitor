@@ -144,6 +144,6 @@ else
 fi
 
 echo ""
-if declare -f log_success >/dev/null 2>&1; then
-    log_success "Диагностика системы завершена."
+if declare -f log_info >/dev/null 2>&1; then
+    log_info "Диагностика системы завершена."
 fi
