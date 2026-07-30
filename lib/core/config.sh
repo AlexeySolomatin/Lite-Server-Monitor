@@ -161,9 +161,10 @@ validate_config()
 
     if [[ -z "${LSM_HOSTNAME:-}" ]]; then
 
-        export LSM_HOSTNAME="$(
+        LSM_HOSTNAME="$(
             hostname -s 2>/dev/null || echo unknown-host
         )"
+        export LSM_HOSTNAME
 
 
         if declare -f log_warn >/dev/null 2>&1; then
