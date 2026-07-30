@@ -11,7 +11,7 @@ set -Eeuo pipefail
 readonly LSM_TUI_LOADED=1
 
 #
-# Корень репозитория / системы
+# Корень репозитория / системы!
 #
 
 export LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
