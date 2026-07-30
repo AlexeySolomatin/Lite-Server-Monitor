@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Validator API v1.2
-# Путь: lib/installer/module_validator.sh
+# Module Validator API v1.3
+# Path: lib/installer/module_validator.sh
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -12,24 +12,14 @@ set -Eeuo pipefail
 readonly LSM_MODULE_VALIDATOR_LOADED=1
 
 
-
 readonly VALIDATOR_COMPONENT="MODULE_VALIDATOR"
 
-
-
-#
-# Paths
-#
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
-
-#
-# Required manifest fields
-#
 
 readonly LSM_MANIFEST_REQUIRED_FIELDS=(
     "MODULE_ID"
@@ -42,7 +32,7 @@ readonly LSM_MANIFEST_REQUIRED_FIELDS=(
 
 
 #
-# Validate module directory
+# Validate directory and files
 #
 
 module_validate_files()
@@ -56,25 +46,16 @@ module_validate_files()
 
         log_error \
             "${VALIDATOR_COMPONENT}" \
-            "Каталог модуля отсутствует: ${module}"
+            "Каталог отсутствует: ${module}"
 
         return 1
-
     fi
-
-
-
-    local required_files=(
-        "manifest.conf"
-        "install.sh"
-    )
-
 
 
     local file
 
 
-    for file in "${required_files[@]}"
+    for file in manifest.conf install.sh
     do
 
         if [[ ! -f "${module_dir}/${file}" ]]; then
@@ -89,6 +70,17 @@ module_validate_files()
 
     done
 
+
+
+    if [[ ! -x "${module_dir}/install.sh" ]]; then
+
+        log_warn \
+            "${VALIDATOR_COMPONENT}" \
+            "${module}: install.sh не имеет execute права"
+
+        chmod +x "${module_dir}/install.sh"
+
+    fi
 
 
     return 0
@@ -109,7 +101,7 @@ module_validate_manifest()
 
         log_error \
             "${VALIDATOR_COMPONENT}" \
-            "${module}: невозможно загрузить manifest"
+            "${module}: manifest не загружен"
 
         return 1
 
@@ -127,13 +119,25 @@ module_validate_manifest()
 
             log_error \
                 "${VALIDATOR_COMPONENT}" \
-                "${module}: отсутствует поле ${field}"
+                "${module}: отсутствует ${field}"
 
             return 1
 
         fi
 
     done
+
+
+
+    if [[ "${MODULE_ID}" != "${module}" ]]; then
+
+        log_error \
+            "${VALIDATOR_COMPONENT}" \
+            "${module}: MODULE_ID=${MODULE_ID}, ожидался ${module}"
+
+        return 1
+
+    fi
 
 
 
@@ -151,40 +155,26 @@ module_validate_dependencies()
     local module="${1:-}"
 
 
-    if ! module_load_manifest "${module}"; then
-
-        return 1
-
-    fi
-
-
-
-    local dependencies="${MODULE_DEPENDENCIES:-}"
-
-
-
-    [[ -z "${dependencies}" ]] && return 0
-
+    module_load_manifest "${module}" || return 1
 
 
     local dependency
 
 
-    for dependency in ${dependencies}
+    for dependency in ${MODULE_DEPENDENCIES:-}
     do
 
-        if ! module_has_manifest "${dependency}"; then
+        if ! registry_exists "${dependency}"; then
 
             log_error \
                 "${VALIDATOR_COMPONENT}" \
-                "${module}: отсутствует зависимость ${dependency}"
+                "${module}: зависимость отсутствует ${dependency}"
 
             return 1
 
         fi
 
     done
-
 
 
     return 0
@@ -201,11 +191,9 @@ module_validate_all()
     local module="${1:-}"
 
 
-
     log_info \
         "${VALIDATOR_COMPONENT}" \
         "Проверка модуля: ${module}"
-
 
 
     module_validate_files "${module}" || return 1
@@ -215,11 +203,9 @@ module_validate_all()
     module_validate_dependencies "${module}" || return 1
 
 
-
     log_success \
         "${VALIDATOR_COMPONENT}" \
         "${module}: OK"
-
 
 
     return 0
@@ -228,15 +214,13 @@ module_validate_all()
 
 
 #
-# Validate all modules
+# Validate all
 #
 
 module_validate_all_modules()
 {
     local failed=0
-
     local module
-
 
 
     while read -r module
@@ -262,7 +246,7 @@ module_validate_all_modules()
 
         log_error \
             "${VALIDATOR_COMPONENT}" \
-            "Ошибок проверки модулей: ${failed}"
+            "Ошибок: ${failed}"
 
         return 1
 
@@ -272,8 +256,7 @@ module_validate_all_modules()
 
     log_success \
         "${VALIDATOR_COMPONENT}" \
-        "Все модули прошли проверку"
-
+        "Все модули корректны"
 
 
     return 0
