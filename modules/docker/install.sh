@@ -10,7 +10,7 @@ set -Eeuo pipefail
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
 
-# Подключение базовых библиотек и хелперов установки
+# Подключение базовых библиотек и хелперов установки!
 if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
     # shellcheck source=/dev/null
     source "${LSM_ROOT}/lib/core/common.sh"
