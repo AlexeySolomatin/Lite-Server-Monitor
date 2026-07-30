@@ -3,13 +3,13 @@ name: Auto-update README on Web Commit
 on:
   push:
     paths:
-      - 'VERSION'  # Триггер сработает строго при изменении файла VERSION заглавными буквами
+      - 'VERSION'  # Чувствительно к регистру — заглавными буквами!
 
 jobs:
   sync-version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Разрешение боту делать коммиты и пуш в ваш репозиторий
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,14 +17,13 @@ jobs:
       - name: Get version
         id: read_version
         run: |
-          # Читаем файл VERSION заглавными буквами и удаляем пробелы/переносы
+          # Читаем строго файл VERSION заглавными буквами
           VERSION=$(cat VERSION | tr -d '\r\n ')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Найдена версия: $VERSION"
 
       - name: Update README.md
         run: |
-          # Заменяем текст между маркерами в README.md, учитывая пустые строки
           perl -0777 -pi -e "s/<!-- version:start -->.*?<!-- version:end -->/<!-- version:start -->$VERSION<!-- version:end -->/s" README.md
 
       - name: Commit and Push changes
@@ -32,7 +31,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@://github.com"
           
-          # Проверяем, изменился ли README, чтобы не было пустых коммитов
           if ! git diff --quiet README.md; then
             git add README.md
             git commit -m "chore: sync README version to $VERSION [skip ci]"
