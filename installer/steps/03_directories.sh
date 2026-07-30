@@ -7,48 +7,217 @@
 
 set -Eeuo pipefail
 
-step_directories() {
-    log_info "Creating LSM directory structure and deploying files..."
 
-    local target_dir="/opt/lsm"
+readonly DIRECTORIES_COMPONENT="DIRECTORIES"
+
+
+
+step_directories()
+{
+
+    print_section "Directory Structure"
+
+
+
+    local target_dir="${LSM_ROOT:-/opt/lsm}"
+
     local src_dir
+
+
 
     src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-    # Создаем базовые каталоги
-    mkdir -p "${target_dir}"/{bin,commands,installer,lib,modules,templates}
-    mkdir -p /etc/lsm/modules
-    mkdir -p /var/log/lsm
 
-    # Копируем все компоненты проекта
+
+    local etc_dir="${LSM_ETC_DIR:-/etc/lsm}"
+
+    local log_dir="${LSM_LOG_DIR:-/var/log/lsm}"
+
+
+
+    log_info "${DIRECTORIES_COMPONENT}" \
+        "Создание структуры Lite Server Monitor."
+
+
+
+    #
+    # Основные каталоги приложения
+    #
+
+    mkdir -p \
+        "${target_dir}/bin" \
+        "${target_dir}/commands" \
+        "${target_dir}/installer" \
+        "${target_dir}/lib" \
+        "${target_dir}/modules" \
+        "${target_dir}/templates"
+
+
+
+    #
+    # Системные каталоги
+    #
+
+    mkdir -p \
+        "${etc_dir}/modules" \
+        "${log_dir}"
+
+
+
+    #
+    # Развертывание исходного кода
+    #
+
     if [[ "${src_dir}" != "${target_dir}" ]]; then
-        cp -rf "${src_dir}/bin" "${target_dir}/"
-        cp -rf "${src_dir}/commands" "${target_dir}/"
-        cp -rf "${src_dir}/installer" "${target_dir}/"
-        cp -rf "${src_dir}/lib" "${target_dir}/"
-        cp -rf "${src_dir}/modules" "${target_dir}/"
-        cp -rf "${src_dir}/templates" "${target_dir}/" 2>/dev/null || true
-        
-        # ⚠️ Копируем корневой файл VERSION (и CHANGELOG, если есть)
+
+
+        log_info "${DIRECTORIES_COMPONENT}" \
+            "Копирование файлов LSM в ${target_dir}"
+
+
+
+        cp -rf \
+            "${src_dir}/bin" \
+            "${target_dir}/"
+
+
+
+        cp -rf \
+            "${src_dir}/commands" \
+            "${target_dir}/"
+
+
+
+        cp -rf \
+            "${src_dir}/installer" \
+            "${target_dir}/"
+
+
+
+        cp -rf \
+            "${src_dir}/lib" \
+            "${target_dir}/"
+
+
+
+        cp -rf \
+            "${src_dir}/modules" \
+            "${target_dir}/"
+
+
+
+        if [[ -d "${src_dir}/templates" ]]; then
+
+            cp -rf \
+                "${src_dir}/templates" \
+                "${target_dir}/"
+
+        fi
+
+
+
         if [[ -f "${src_dir}/VERSION" ]]; then
-            cp -f "${src_dir}/VERSION" "${target_dir}/VERSION"
+
+            cp -f \
+                "${src_dir}/VERSION" \
+                "${target_dir}/VERSION"
+
         fi
+
+
+
         if [[ -f "${src_dir}/CHANGELOG.md" ]]; then
-            cp -f "${src_dir}/CHANGELOG.md" "${target_dir}/CHANGELOG.md" 2>/dev/null || true
+
+            cp -f \
+                "${src_dir}/CHANGELOG.md" \
+                "${target_dir}/CHANGELOG.md"
+
         fi
+
+
+    else
+
+
+        log_info "${DIRECTORIES_COMPONENT}" \
+            "Исходный каталог совпадает с целевым. Копирование пропущено."
+
+
     fi
 
-    chmod -R 755 "${target_dir}"
-    chmod +x "${target_dir}/bin/lsm" 2>/dev/null || true
-    chmod +x "${target_dir}/installer"/*.sh 2>/dev/null || true
 
-    log_success "Directory structure created at ${target_dir}"
+
+    #
+    # Базовые права приложения
+    #
+
+    find "${target_dir}" \
+        -type d \
+        -exec chmod 755 {} \;
+
+
+
+    find "${target_dir}" \
+        -type f \
+        -exec chmod 644 {} \;
+
+
+
+    #
+    # Исполняемые файлы
+    #
+
+    chmod +x \
+        "${target_dir}/bin/lsm" \
+        2>/dev/null || true
+
+
+
+    find "${target_dir}/installer" \
+        -type f \
+        -name "*.sh" \
+        -exec chmod +x {} \; \
+        2>/dev/null || true
+
+
+
+    find "${target_dir}/commands" \
+        -type f \
+        -name "*.sh" \
+        -exec chmod +x {} \; \
+        2>/dev/null || true
+
+
+
+    log_success "${DIRECTORIES_COMPONENT}" \
+        "Структура LSM создана: ${target_dir}"
+
+
+    return 0
+
 }
 
+
+
+#
+# Автономный запуск
+#
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+
+
     LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+
     export LSM_ROOT
-    if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/common.sh"; fi
-    if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
+
+
+
+    source "${LSM_ROOT}/lib/core/common.sh"
+    source "${LSM_ROOT}/lib/core/logging.sh"
+    source "${LSM_ROOT}/lib/core/ui.sh"
+
+
+
     step_directories
+
+
 fi
