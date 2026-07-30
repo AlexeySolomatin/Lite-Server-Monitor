@@ -7,85 +7,177 @@
 
 set -Eeuo pipefail
 
+
+#
+# Минимальный аварийный вывод до загрузки LSM
+#
+
+bootstrap_error()
+{
+    printf "ERROR: %s\n" "$*" >&2
+}
+
+
+
 #
 # Определение корня проекта
 #
 
 if [[ -n "${LSM_ROOT:-}" ]]; then
+
     :
+
 elif [[ -d "/opt/lsm" ]]; then
+
     LSM_ROOT="/opt/lsm"
+
 else
+
     LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 fi
+
 
 readonly LSM_ROOT
 export LSM_ROOT
+
+
 
 #
 # Проверка структуры проекта
 #
 
 if [[ ! -d "${LSM_ROOT}/commands" ]]; then
-    echo "ERROR: Каталог commands не найден."
-    echo "LSM_ROOT=${LSM_ROOT}"
+
+    bootstrap_error "Каталог commands не найден."
+
+    printf "LSM_ROOT=%s\n" "${LSM_ROOT}" >&2
+
     exit 1
+
 fi
+
+
+
+#
+# Загрузка базового окружения и логирования
+#
+# Не обязательно для запуска команд,
+# но позволяет единый стиль ошибок.
+#
+
+if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/common.sh"
+fi
+
+
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/logging.sh"
+fi
+
+
 
 COMMAND="${1:-help}"
 shift || true
 
+
+
 case "${COMMAND}" in
 
     help|-h|--help)
+
         exec bash "${LSM_ROOT}/commands/help.sh" "$@"
+
         ;;
+
 
     modules)
+
         exec bash "${LSM_ROOT}/commands/modules.sh" "$@"
+
         ;;
+
 
     install)
+
         exec bash "${LSM_ROOT}/commands/install.sh" "$@"
+
         ;;
+
 
     uninstall)
+
         exec bash "${LSM_ROOT}/commands/uninstall.sh" "$@"
+
         ;;
+
 
     update)
+
         exec bash "${LSM_ROOT}/commands/update.sh" "$@"
+
         ;;
+
 
     status)
+
         exec bash "${LSM_ROOT}/commands/status.sh" "$@"
+
         ;;
+
 
     doctor)
+
         exec bash "${LSM_ROOT}/commands/doctor.sh" "$@"
+
         ;;
+
 
     report)
+
         exec bash "${LSM_ROOT}/commands/report.sh" "$@"
+
         ;;
+
 
     config)
+
         exec bash "${LSM_ROOT}/commands/config.sh" "$@"
+
         ;;
+
 
     version)
+
         exec bash "${LSM_ROOT}/commands/version.sh" "$@"
+
         ;;
+
 
     tui)
+
         exec bash "${LSM_ROOT}/lib/tui/tui.sh"
+
         ;;
 
+
     *)
-        echo
-        echo "Неизвестная команда: ${COMMAND}"
-        echo
+
+        if declare -f log_error >/dev/null 2>&1; then
+
+            log_error "CLI" "Неизвестная команда: ${COMMAND}"
+
+        else
+
+            bootstrap_error "Неизвестная команда: ${COMMAND}"
+
+        fi
+
+
         exec bash "${LSM_ROOT}/commands/help.sh"
+
         ;;
 
 esac
