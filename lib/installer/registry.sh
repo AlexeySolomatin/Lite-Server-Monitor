@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Реестр модулей установки
+# Module Registry API v1.2
 # Путь: lib/installer/registry.sh
 # ==============================================================================
 
@@ -10,6 +10,10 @@ set -Eeuo pipefail
 
 [[ -n "${LSM_INSTALL_REGISTRY_LOADED:-}" ]] && return 0
 readonly LSM_INSTALL_REGISTRY_LOADED=1
+
+
+
+readonly REGISTRY_COMPONENT="REGISTRY"
 
 
 
@@ -34,7 +38,30 @@ declare -A LSM_MODULE_CATEGORY
 declare -A LSM_MODULE_DEPENDENCIES
 
 
+declare -A LSM_MODULE_EXISTS
+
+declare -A LSM_RESOLVING
+
+
 declare -a LSM_MODULES=()
+
+
+
+#
+# Clear registry
+#
+
+registry_clear()
+{
+    LSM_MODULE_NAME=()
+    LSM_MODULE_DESCRIPTION=()
+    LSM_MODULE_VERSION=()
+    LSM_MODULE_CATEGORY=()
+    LSM_MODULE_DEPENDENCIES=()
+    LSM_MODULE_EXISTS=()
+
+    LSM_MODULES=()
+}
 
 
 
@@ -44,20 +71,14 @@ declare -a LSM_MODULES=()
 
 registry_add()
 {
-    local module="$1"
+    local module="${1:-}"
 
 
     [[ -n "${module}" ]] || return 1
 
 
-
-    if ! declare -f module_has_manifest >/dev/null 2>&1; then
-
-        log_error \
-            "API module_loader недоступен."
-
-        return 1
-
+    if [[ -v LSM_MODULE_EXISTS[$module] ]]; then
+        return 0
     fi
 
 
@@ -65,7 +86,8 @@ registry_add()
     if ! module_has_manifest "${module}"; then
 
         log_warn \
-            "Модуль ${module}: manifest.conf отсутствует"
+            "${REGISTRY_COMPONENT}" \
+            "Manifest отсутствует: ${module}"
 
         return 1
 
@@ -75,13 +97,17 @@ registry_add()
 
     if ! module_load_manifest "${module}"; then
 
-        log_warn \
-            "Модуль ${module}: ошибка загрузки manifest.conf"
+        log_error \
+            "${REGISTRY_COMPONENT}" \
+            "Ошибка загрузки manifest: ${module}"
 
         return 1
 
     fi
 
+
+
+    LSM_MODULE_EXISTS["${module}"]=1
 
 
     LSM_MODULES+=("${module}")
@@ -102,14 +128,12 @@ registry_add()
 
 
 #
-# Scan modules directory
+# Scan
 #
 
 registry_scan()
 {
-
-    LSM_MODULES=()
-
+    registry_clear
 
 
     [[ -d "${LSM_MODULES_DIR}" ]] || return 0
@@ -132,98 +156,44 @@ registry_scan()
             -maxdepth 1 \
             -type d \
             -printf "%f\n" \
-            2>/dev/null \
             | sort
 
     )
-
 }
 
 
 
 #
-# Load registry
+# Load
 #
 
 registry_load_default()
 {
-
     registry_scan
-
 }
 
 
 
 #
-# Check module exists
+# Exists
 #
 
 registry_exists()
 {
+    local module="${1:-}"
 
-    local module="$1"
-
-
-    [[ -n "${LSM_MODULE_NAME[$module]:-}" ]]
-
+    [[ -v LSM_MODULE_EXISTS[$module] ]]
 }
 
 
 
 #
-# List modules
+# List
 #
 
 registry_list()
 {
-
     printf "%s\n" "${LSM_MODULES[@]}"
-
-}
-
-
-
-#
-# Module information
-#
-
-registry_info()
-{
-
-    local module="$1"
-
-
-
-    if ! registry_exists "${module}"; then
-
-        return 1
-
-    fi
-
-
-
-cat <<EOF
-
-Модуль:
-${module}
-
-Название:
-${LSM_MODULE_NAME[$module]}
-
-Описание:
-${LSM_MODULE_DESCRIPTION[$module]}
-
-Версия:
-${LSM_MODULE_VERSION[$module]}
-
-Категория:
-${LSM_MODULE_CATEGORY[$module]}
-
-Зависимости:
-${LSM_MODULE_DEPENDENCIES[$module]:-нет}
-
-EOF
-
 }
 
 
@@ -234,81 +204,25 @@ EOF
 
 registry_dependencies()
 {
-
-    local module="$1"
-
+    local module="${1:-}"
 
     echo "${LSM_MODULE_DEPENDENCIES[$module]:-}"
-
 }
 
 
 
 #
-# Dependency validation
-#
-
-registry_check_dependencies()
-{
-
-    local module="$1"
-
-
-
-    if ! registry_exists "${module}"; then
-
-        log_error \
-            "Модуль ${module} отсутствует в registry."
-
-        return 1
-
-    fi
-
-
-
-    local deps
-
-    deps=$(registry_dependencies "${module}")
-
-
-
-    [[ -z "${deps}" ]] && return 0
-
-
-
-    for dep in ${deps}
-    do
-
-        if ! registry_exists "${dep}"; then
-
-            log_error \
-                "Модуль ${module}: отсутствует зависимость ${dep}"
-
-            return 1
-
-        fi
-
-    done
-
-
-
-    return 0
-
-}
-
-
-
-#
-# Resolve installation order
+# Resolve
 #
 
 registry_resolve_order()
 {
-
     local requested=("$@")
 
-
     local result=()
+
+
+    LSM_RESOLVING=()
 
 
 
@@ -317,55 +231,71 @@ registry_resolve_order()
 
         registry_resolve_module \
             "${module}" \
-            result
+            result || return 1
 
     done
 
 
-
     printf "%s\n" "${result[@]}"
-
 }
 
 
 
-#
-# Recursive dependency resolver
-#
-
 registry_resolve_module()
 {
     local module="$1"
-    local __array_name="$2"
+    local array_name="$2"
 
-    [[ -n "${module}" ]] || return 1
+
 
     if ! registry_exists "${module}"; then
-        log_error "Модуль ${module} отсутствует в registry."
+
+        log_error \
+            "${REGISTRY_COMPONENT}" \
+            "Модуль отсутствует: ${module}"
+
         return 1
+
     fi
 
-    local current
-    eval "current=(\"\${${__array_name}[@]}\")"
 
-    local item
-    for item in "${current[@]}"
-    do
-        [[ "${item}" == "${module}" ]] && return 0
-    done
+
+    if [[ "${LSM_RESOLVING[$module]:-}" == "true" ]]; then
+
+        log_error \
+            "${REGISTRY_COMPONENT}" \
+            "Обнаружен цикл зависимостей: ${module}"
+
+        return 1
+
+    fi
+
+
+
+    LSM_RESOLVING["${module}"]="true"
+
+
 
     local deps
+
     deps="$(registry_dependencies "${module}")"
 
-    if [[ -n "${deps}" ]]; then
-        local dep
-        for dep in ${deps}
-        do
-            registry_resolve_module "${dep}" "${__array_name}" || return 1
-        done
-    fi
 
-    eval "${__array_name}+=(\"\${module}\")"
 
-    return 0
+    for dep in ${deps}
+    do
+
+        registry_resolve_module \
+            "${dep}" \
+            "${array_name}" || return 1
+
+    done
+
+
+
+    LSM_RESOLVING["${module}"]=""
+
+
+
+    eval "${array_name}+=(\"\${module}\")"
 }
