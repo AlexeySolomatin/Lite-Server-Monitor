@@ -23,6 +23,18 @@ step_permissions()
 
 
     #
+    # Подгрузка библиотеки permissions.sh
+    #
+
+    if [[ -f "${LSM_ROOT:-}/lib/installer/permissions.sh" ]]; then
+
+        source "${LSM_ROOT}/lib/installer/permissions.sh"
+
+    fi
+
+
+
+    #
     # Проверка API permissions.sh
     #
 
