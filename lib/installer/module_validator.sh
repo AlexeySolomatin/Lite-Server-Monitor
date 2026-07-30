@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Валидатор модулей
+# Validator модулей
 # Путь: lib/installer/module_validator.sh
+# Версия: 1.2
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -24,7 +25,7 @@ LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
 #
-# Required manifest fields
+# Обязательные поля manifest
 #
 
 readonly LSM_MANIFEST_REQUIRED_FIELDS=(
@@ -38,13 +39,38 @@ readonly LSM_MANIFEST_REQUIRED_FIELDS=(
 
 
 #
-# Validate module files
+# Проверка существования модуля
+#
+
+module_validate_exists()
+{
+    local module="${1:-}"
+
+    local module_dir="${LSM_MODULES_DIR}/${module}"
+
+
+    if [[ ! -d "${module_dir}" ]]; then
+
+        log_error \
+            "Модуль не существует: ${module}"
+
+        return 1
+
+    fi
+
+
+    return 0
+}
+
+
+
+#
+# Проверка файлов модуля
 #
 
 module_validate_files()
 {
-
-    local module="$1"
+    local module="${1:-}"
 
     local module_dir="${LSM_MODULES_DIR}/${module}"
 
@@ -57,13 +83,16 @@ module_validate_files()
 
 
 
+    local file
+
+
     for file in "${required_files[@]}"
     do
 
         if [[ ! -f "${module_dir}/${file}" ]]; then
 
             log_error \
-                "Модуль ${module}: отсутствует обязательный файл ${file}"
+                "Модуль ${module}: отсутствует файл ${file}"
 
             return 1
 
@@ -73,27 +102,86 @@ module_validate_files()
 
 
 
-    return 0
+    #
+    # Проверяем install.sh
+    #
 
+    if [[ ! -r "${module_dir}/install.sh" ]]; then
+
+        log_error \
+            "Модуль ${module}: install.sh недоступен для чтения"
+
+        return 1
+
+    fi
+
+
+
+    if [[ ! -x "${module_dir}/install.sh" ]]; then
+
+        log_warn \
+            "Модуль ${module}: install.sh не имеет execute bit"
+
+    fi
+
+
+
+    return 0
 }
 
 
 
 #
-# Validate manifest
+# Базовая защита manifest
+#
+
+module_validate_manifest_security()
+{
+    local module="${1:-}"
+
+    local manifest="${LSM_MODULES_DIR}/${module}/manifest.conf"
+
+
+
+    if grep -Eq \
+        '(^|[[:space:]])(rm|chmod|chown|curl|wget|apt|apt-get|systemctl)[[:space:]]|[;&|`$()]' \
+        "${manifest}"
+    then
+
+        log_error \
+            "Модуль ${module}: manifest содержит потенциально опасный код"
+
+        return 1
+
+    fi
+
+
+
+    return 0
+}
+
+
+
+#
+# Проверка manifest
 #
 
 module_validate_manifest()
 {
+    local module="${1:-}"
 
-    local module="$1"
+
+
+    if ! module_validate_manifest_security "${module}"; then
+        return 1
+    fi
 
 
 
     if ! module_load_manifest "${module}"; then
 
         log_error \
-            "Модуль ${module}: manifest.conf не загружен"
+            "Модуль ${module}: ошибка загрузки manifest.conf"
 
         return 1
 
@@ -102,6 +190,8 @@ module_validate_manifest()
 
 
     local errors=0
+
+    local field
 
 
 
@@ -122,82 +212,17 @@ module_validate_manifest()
 
 
     return "${errors}"
-
 }
 
 
 
 #
-# Validate dependencies
-#
-
-module_validate_dependencies()
-{
-
-    local module="$1"
-
-
-
-    if ! module_load_manifest "${module}"; then
-
-        log_error \
-            "Модуль ${module}: невозможно проверить зависимости"
-
-        return 1
-
-    fi
-
-
-
-    local dependencies="${MODULE_DEPENDENCIES:-}"
-
-
-
-    [[ -z "${dependencies}" ]] && return 0
-
-
-
-    for dependency in ${dependencies}
-    do
-
-        if ! declare -f module_has_manifest >/dev/null 2>&1; then
-
-            log_error \
-                "API module_loader недоступен"
-
-            return 1
-
-        fi
-
-
-
-        if ! module_has_manifest "${dependency}"; then
-
-            log_error \
-                "Модуль ${module}: отсутствует зависимость ${dependency}"
-
-            return 1
-
-        fi
-
-    done
-
-
-
-    return 0
-
-}
-
-
-
-#
-# Full module validation
+# Полная проверка модуля
 #
 
 module_validate_all()
 {
-
-    local module="$1"
+    local module="${1:-}"
 
 
 
@@ -206,34 +231,32 @@ module_validate_all()
 
 
 
+    module_validate_exists "${module}" || return 1
+
+
     module_validate_files "${module}" || return 1
 
 
     module_validate_manifest "${module}" || return 1
 
 
-    module_validate_dependencies "${module}" || return 1
-
-
 
     log_success \
-        "Модуль ${module}: OK"
+        "Модуль ${module}: проверка успешно пройдена"
 
 
 
     return 0
-
 }
 
 
 
 #
-# Validate all modules
+# Проверка всех модулей
 #
 
 module_validate_all_modules()
 {
-
     local failed=0
 
 
@@ -252,17 +275,16 @@ module_validate_all_modules()
         fi
 
 
-
     done < <(
         module_loader_list
     )
 
 
 
-    if [[ "${failed}" -gt 0 ]]; then
+    if (( failed > 0 )); then
 
         log_error \
-            "Ошибок модулей: ${failed}"
+            "Ошибок проверки модулей: ${failed}"
 
         return 1
 
@@ -276,5 +298,4 @@ module_validate_all_modules()
 
 
     return 0
-
 }
