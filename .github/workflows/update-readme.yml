@@ -1,0 +1,34 @@
+name: Update README Version
+
+on:
+  push:
+    paths:
+      - 'version'
+      - '.github/workflows/update-readme.yml'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version file
+        id: get_version
+        run: |
+          VERSION=$(cat version | tr -d '\r\n')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update README.md
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          # Заменяем текст между комментариями на актуальную версию из файла version
+          perl -0777 -pi -e "s/<!-- version:start -->.*?<!-- version:end -->/<!-- version:start -->$VERSION<!-- version:end -->/s" README.md
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git diff --quiet || (git commit -am "chore: auto-update readme version to ${{ steps.get_version.outputs.version }}" && git push)
