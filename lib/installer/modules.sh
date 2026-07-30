@@ -38,6 +38,21 @@ LSM_MODULE_STATE_DIR="${LSM_MODULE_STATE_DIR:-${LSM_STATE_DIR}/modules}"
 
 
 #
+# Проверка имени модуля
+#
+
+modules_validate_name()
+{
+    local module="${1:-}"
+
+    [[ -n "${module}" ]] || return 1
+
+    [[ "${module}" =~ ^[a-zA-Z0-9_-]+$ ]]
+}
+
+
+
+#
 # Проверка существования модуля
 #
 
@@ -45,7 +60,7 @@ modules_exists()
 {
     local module="${1:-}"
 
-    [[ -n "${module}" ]] || return 1
+    modules_validate_name "${module}" || return 1
 
     [[ -d "${LSM_MODULES_DIR}/${module}" ]]
 }
@@ -60,7 +75,7 @@ modules_path()
 {
     local module="${1:-}"
 
-    [[ -n "${module}" ]] || return 1
+    modules_validate_name "${module}" || return 1
 
     printf "%s\n" \
         "${LSM_MODULES_DIR}/${module}"
@@ -76,6 +91,8 @@ modules_is_installed()
 {
     local module="${1:-}"
 
+    modules_validate_name "${module}" || return 1
+
     [[ -f "${LSM_MODULE_STATE_DIR}/${module}.installed" ]]
 }
 
@@ -85,14 +102,25 @@ modules_mark_installed()
 {
     local module="${1:-}"
 
+    modules_validate_name "${module}" || return 1
+
+
     mkdir -p "${LSM_MODULE_STATE_DIR}"
 
+
     chmod 750 "${LSM_MODULE_STATE_DIR}"
+    chown root:root "${LSM_MODULE_STATE_DIR}"
+
 
     date '+%Y-%m-%d %H:%M:%S' \
         > "${LSM_MODULE_STATE_DIR}/${module}.installed"
 
+
     chmod 640 \
+        "${LSM_MODULE_STATE_DIR}/${module}.installed"
+
+
+    chown root:root \
         "${LSM_MODULE_STATE_DIR}/${module}.installed"
 }
 
@@ -101,6 +129,8 @@ modules_mark_installed()
 modules_clear_state()
 {
     local module="${1:-}"
+
+    modules_validate_name "${module}" || return 1
 
     rm -f \
         "${LSM_MODULE_STATE_DIR}/${module}.installed"
@@ -116,46 +146,63 @@ modules_install()
 {
     local module="${1:-}"
 
-    if [[ -z "${module}" ]]; then
+
+    if ! modules_validate_name "${module}"; then
+
         log_error "${MODULES_COMPONENT}" \
-            "Имя модуля не указано."
+            "Некорректное имя модуля: ${module}"
+
         return 1
     fi
+
 
 
     if ! modules_exists "${module}"; then
+
         log_error "${MODULES_COMPONENT}" \
             "Модуль не найден: ${module}"
+
         return 1
     fi
 
 
+
     if modules_is_installed "${module}"; then
+
         log_warn "${MODULES_COMPONENT}" \
             "Модуль уже установлен: ${module}"
+
         return 0
     fi
+
 
 
     local module_dir
     module_dir="$(modules_path "${module}")"
 
 
+
     local installer="${module_dir}/install.sh"
 
 
+
     if [[ ! -f "${installer}" ]]; then
+
         log_error "${MODULES_COMPONENT}" \
             "install.sh отсутствует: ${module}"
+
         return 1
     fi
+
 
 
     chmod +x "${installer}"
 
 
+
     log_info "${MODULES_COMPONENT}" \
         "Установка модуля: ${module}"
+
 
 
     if ! bash "${installer}"; then
@@ -164,14 +211,18 @@ modules_install()
             "Ошибка установки модуля: ${module}"
 
         return 1
+
     fi
+
 
 
     modules_mark_installed "${module}"
 
 
+
     log_success "${MODULES_COMPONENT}" \
         "Модуль установлен: ${module}"
+
 
     return 0
 }
@@ -187,22 +238,30 @@ modules_remove()
     local module="${1:-}"
 
 
-    if [[ -z "${module}" ]]; then
+
+    if ! modules_validate_name "${module}"; then
+
         log_error "${MODULES_COMPONENT}" \
-            "Имя модуля не указано."
+            "Некорректное имя модуля: ${module}"
+
         return 1
     fi
+
 
 
     if ! modules_exists "${module}"; then
+
         log_error "${MODULES_COMPONENT}" \
             "Модуль не найден: ${module}"
+
         return 1
     fi
+
 
 
     local module_dir
     module_dir="$(modules_path "${module}")"
+
 
 
     local uninstall="${module_dir}/uninstall.sh"
@@ -214,8 +273,10 @@ modules_remove()
         chmod +x "${uninstall}"
 
 
+
         log_info "${MODULES_COMPONENT}" \
             "Удаление модуля: ${module}"
+
 
 
         if ! bash "${uninstall}"; then
@@ -224,6 +285,7 @@ modules_remove()
                 "Ошибка удаления модуля: ${module}"
 
             return 1
+
         fi
 
     else
@@ -238,8 +300,10 @@ modules_remove()
     modules_clear_state "${module}"
 
 
+
     log_success "${MODULES_COMPONENT}" \
         "Модуль удален: ${module}"
+
 
     return 0
 }
@@ -255,11 +319,25 @@ modules_enable()
     local module="${1:-}"
 
 
-    if [[ -z "${module}" ]]; then
+
+    if ! modules_validate_name "${module}"; then
+
         log_error "${MODULES_COMPONENT}" \
-            "Имя модуля не указано."
+            "Некорректное имя модуля: ${module}"
+
         return 1
     fi
+
+
+
+    if ! modules_exists "${module}"; then
+
+        log_error "${MODULES_COMPONENT}" \
+            "Модуль не найден: ${module}"
+
+        return 1
+    fi
+
 
 
     local module_dir
@@ -308,11 +386,25 @@ modules_disable()
     local module="${1:-}"
 
 
-    if [[ -z "${module}" ]]; then
+
+    if ! modules_validate_name "${module}"; then
+
         log_error "${MODULES_COMPONENT}" \
-            "Имя модуля не указано."
+            "Некорректное имя модуля: ${module}"
+
         return 1
     fi
+
+
+
+    if ! modules_exists "${module}"; then
+
+        log_error "${MODULES_COMPONENT}" \
+            "Модуль не найден: ${module}"
+
+        return 1
+    fi
+
 
 
     local module_dir
@@ -361,10 +453,11 @@ modules_status()
     local module="${1:-}"
 
 
-    if [[ -z "${module}" ]]; then
+
+    if ! modules_validate_name "${module}"; then
 
         log_error "${MODULES_COMPONENT}" \
-            "Имя модуля не указано."
+            "Некорректное имя модуля: ${module}"
 
         return 1
     fi
@@ -376,15 +469,19 @@ modules_status()
         log_info "${MODULES_COMPONENT}" \
             "Модуль установлен: ${module}"
 
+
         printf "Дата установки: "
 
         cat \
             "${LSM_MODULE_STATE_DIR}/${module}.installed"
 
+
     else
 
         log_warn "${MODULES_COMPONENT}" \
             "Модуль не установлен: ${module}"
+
+        return 1
 
     fi
 }
@@ -403,5 +500,6 @@ modules_installed_list()
     find "${LSM_MODULE_STATE_DIR}" \
         -name "*.installed" \
         -printf "%f\n" \
-        | sed 's/\.installed$//'
+        | sed 's/\.installed$//' \
+        | sort
 }
