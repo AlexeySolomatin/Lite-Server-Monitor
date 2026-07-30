@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Validator API v1.3
+# Module Validator API v1.4
 # Path: lib/installer/module_validator.sh
 # ==============================================================================
 
@@ -15,11 +15,20 @@ readonly LSM_MODULE_VALIDATOR_LOADED=1
 readonly VALIDATOR_COMPONENT="MODULE_VALIDATOR"
 
 
+
+#
+# Paths
+#
+
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
+
+#
+# Required manifest fields
+#
 
 readonly LSM_MANIFEST_REQUIRED_FIELDS=(
     "MODULE_ID"
@@ -32,7 +41,7 @@ readonly LSM_MANIFEST_REQUIRED_FIELDS=(
 
 
 #
-# Validate directory and files
+# Validate module directory
 #
 
 module_validate_files()
@@ -42,27 +51,37 @@ module_validate_files()
     local module_dir="${LSM_MODULES_DIR}/${module}"
 
 
+
     if [[ ! -d "${module_dir}" ]]; then
 
         log_error \
             "${VALIDATOR_COMPONENT}" \
-            "Каталог отсутствует: ${module}"
+            "${module}: каталог отсутствует"
 
         return 1
+
     fi
+
+
+
+    local required_files=(
+        "manifest.conf"
+        "install.sh"
+    )
+
 
 
     local file
 
 
-    for file in manifest.conf install.sh
+    for file in "${required_files[@]}"
     do
 
         if [[ ! -f "${module_dir}/${file}" ]]; then
 
             log_error \
                 "${VALIDATOR_COMPONENT}" \
-                "${module}: отсутствует ${file}"
+                "${module}: отсутствует обязательный файл ${file}"
 
             return 1
 
@@ -74,13 +93,14 @@ module_validate_files()
 
     if [[ ! -x "${module_dir}/install.sh" ]]; then
 
-        log_warn \
+        log_error \
             "${VALIDATOR_COMPONENT}" \
             "${module}: install.sh не имеет execute права"
 
-        chmod +x "${module_dir}/install.sh"
+        return 1
 
     fi
+
 
 
     return 0
@@ -97,11 +117,12 @@ module_validate_manifest()
     local module="${1:-}"
 
 
+
     if ! module_load_manifest "${module}"; then
 
         log_error \
             "${VALIDATOR_COMPONENT}" \
-            "${module}: manifest не загружен"
+            "${module}: ошибка загрузки manifest.conf"
 
         return 1
 
@@ -119,7 +140,7 @@ module_validate_manifest()
 
             log_error \
                 "${VALIDATOR_COMPONENT}" \
-                "${module}: отсутствует ${field}"
+                "${module}: отсутствует поле ${field}"
 
             return 1
 
@@ -155,20 +176,34 @@ module_validate_dependencies()
     local module="${1:-}"
 
 
-    module_load_manifest "${module}" || return 1
+
+    if ! module_load_manifest "${module}"; then
+
+        return 1
+
+    fi
+
+
+
+    local dependencies="${MODULE_DEPENDENCIES:-}"
+
+
+
+    [[ -z "${dependencies}" ]] && return 0
+
 
 
     local dependency
 
 
-    for dependency in ${MODULE_DEPENDENCIES:-}
+    for dependency in ${dependencies}
     do
 
         if ! registry_exists "${dependency}"; then
 
             log_error \
                 "${VALIDATOR_COMPONENT}" \
-                "${module}: зависимость отсутствует ${dependency}"
+                "${module}: отсутствует зависимость ${dependency}"
 
             return 1
 
@@ -177,13 +212,45 @@ module_validate_dependencies()
     done
 
 
+
     return 0
 }
 
 
 
 #
-# Full validation
+# Validate optional files
+#
+
+module_validate_optional_files()
+{
+    local module="${1:-}"
+
+    local module_dir="${LSM_MODULES_DIR}/${module}"
+
+
+
+    if [[ -f "${module_dir}/uninstall.sh" ]]; then
+
+        if [[ ! -x "${module_dir}/uninstall.sh" ]]; then
+
+            log_warn \
+                "${VALIDATOR_COMPONENT}" \
+                "${module}: uninstall.sh существует, но нет execute права"
+
+        fi
+
+    fi
+
+
+
+    return 0
+}
+
+
+
+#
+# Full module validation
 #
 
 module_validate_all()
@@ -191,9 +258,11 @@ module_validate_all()
     local module="${1:-}"
 
 
+
     log_info \
         "${VALIDATOR_COMPONENT}" \
         "Проверка модуля: ${module}"
+
 
 
     module_validate_files "${module}" || return 1
@@ -202,10 +271,14 @@ module_validate_all()
 
     module_validate_dependencies "${module}" || return 1
 
+    module_validate_optional_files "${module}" || return 1
+
+
 
     log_success \
         "${VALIDATOR_COMPONENT}" \
         "${module}: OK"
+
 
 
     return 0
@@ -214,19 +287,22 @@ module_validate_all()
 
 
 #
-# Validate all
+# Validate all modules
 #
 
 module_validate_all_modules()
 {
     local failed=0
+
     local module
+
 
 
     while read -r module
     do
 
         [[ -z "${module}" ]] && continue
+
 
 
         if ! module_validate_all "${module}"; then
@@ -246,7 +322,7 @@ module_validate_all_modules()
 
         log_error \
             "${VALIDATOR_COMPONENT}" \
-            "Ошибок: ${failed}"
+            "Ошибок проверки модулей: ${failed}"
 
         return 1
 
@@ -256,7 +332,8 @@ module_validate_all_modules()
 
     log_success \
         "${VALIDATOR_COMPONENT}" \
-        "Все модули корректны"
+        "Все модули прошли проверку"
+
 
 
     return 0
