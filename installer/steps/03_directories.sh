@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
 # Step 03: Directory Structure and Codebase Deployment
+# Path: installer/steps/03_directories.sh
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -19,24 +20,21 @@ step_directories()
 
 
 
-    local target_dir="${LSM_ROOT:-/opt/lsm}"
-
+    #
+    # Целевой каталог установки (LSM_INSTALL_DIR имеет приоритет над дефолтным /opt/lsm)
+    #
+    local target_dir="${LSM_INSTALL_DIR:-/opt/lsm}"
     local src_dir
-
-
 
     src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-
-
     local etc_dir="${LSM_ETC_DIR:-/etc/lsm}"
-
     local log_dir="${LSM_LOG_DIR:-/var/log/lsm}"
 
 
 
     log_info "${DIRECTORIES_COMPONENT}" \
-        "Создание структуры Lite Server Monitor."
+        "Создание структуры Lite Server Monitor в ${target_dir}."
 
 
 
@@ -72,7 +70,7 @@ step_directories()
 
 
         log_info "${DIRECTORIES_COMPONENT}" \
-            "Копирование файлов LSM в ${target_dir}"
+            "Копирование файлов LSM из ${src_dir} в ${target_dir}"
 
 
 
@@ -153,8 +151,6 @@ step_directories()
     find "${target_dir}" -type d -exec chmod 755 {} +
     find "${target_dir}" -type f -exec chmod 644 {} +
 
-    find "${target_dir}/modules" -type f -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
-
 
 
     #
@@ -170,7 +166,7 @@ step_directories()
     find "${target_dir}/installer" \
         -type f \
         -name "*.sh" \
-        -exec chmod +x {} \; \
+        -exec chmod +x {} + \
         2>/dev/null || true
 
 
@@ -178,19 +174,36 @@ step_directories()
     find "${target_dir}/commands" \
         -type f \
         -name "*.sh" \
-        -exec chmod +x {} \; \
+        -exec chmod +x {} + \
         2>/dev/null || true
+
+
 
     find "${target_dir}/modules" \
         -type f \
         -name "*.sh" \
-        -exec chmod +x {} \; \
+        -exec chmod +x {} + \
         2>/dev/null || true
 
 
 
+    #
+    # Системный симлинк для CLI (исправляет ошибку на шаге 08_finish)
+    #
+
+    if [[ -f "${target_dir}/bin/lsm" ]]; then
+
+        log_info "${DIRECTORIES_COMPONENT}" \
+            "Создание символической ссылки /usr/local/bin/lsm"
+
+        ln -sf "${target_dir}/bin/lsm" /usr/local/bin/lsm
+
+    fi
+
+
+
     log_success "${DIRECTORIES_COMPONENT}" \
-        "Структура LSM создана: ${target_dir}"
+        "Структура LSM создана и обновлена: ${target_dir}"
 
 
     return 0
@@ -206,7 +219,7 @@ step_directories()
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
 
-    LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+    LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
     export LSM_ROOT
 
