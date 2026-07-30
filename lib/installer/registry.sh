@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Registry API v1.2
+# Module Registry API v1.3
 # Путь: lib/installer/registry.sh
 # ==============================================================================
 
@@ -40,7 +40,14 @@ declare -A LSM_MODULE_DEPENDENCIES
 
 declare -A LSM_MODULE_EXISTS
 
+
+#
+# Dependency resolver state
+#
+
 declare -A LSM_RESOLVING
+declare -A LSM_RESOLVED
+
 
 
 declare -a LSM_MODULES=()
@@ -58,7 +65,11 @@ registry_clear()
     LSM_MODULE_VERSION=()
     LSM_MODULE_CATEGORY=()
     LSM_MODULE_DEPENDENCIES=()
+
     LSM_MODULE_EXISTS=()
+
+    LSM_RESOLVING=()
+    LSM_RESOLVED=()
 
     LSM_MODULES=()
 }
@@ -75,6 +86,7 @@ registry_add()
 
 
     [[ -n "${module}" ]] || return 1
+
 
 
     if [[ -v LSM_MODULE_EXISTS[$module] ]]; then
@@ -128,12 +140,13 @@ registry_add()
 
 
 #
-# Scan
+# Scan modules directory
 #
 
 registry_scan()
 {
     registry_clear
+
 
 
     [[ -d "${LSM_MODULES_DIR}" ]] || return 0
@@ -156,15 +169,22 @@ registry_scan()
             -maxdepth 1 \
             -type d \
             -printf "%f\n" \
+            2>/dev/null \
             | sort
 
     )
+
+
+
+    log_info \
+        "${REGISTRY_COMPONENT}" \
+        "Загружено модулей: ${#LSM_MODULES[@]}"
 }
 
 
 
 #
-# Load
+# Load registry
 #
 
 registry_load_default()
@@ -175,7 +195,7 @@ registry_load_default()
 
 
 #
-# Exists
+# Module exists
 #
 
 registry_exists()
@@ -188,7 +208,7 @@ registry_exists()
 
 
 #
-# List
+# List modules
 #
 
 registry_list()
@@ -199,7 +219,7 @@ registry_list()
 
 
 #
-# Dependencies
+# Module dependencies
 #
 
 registry_dependencies()
@@ -212,18 +232,122 @@ registry_dependencies()
 
 
 #
-# Resolve
+# Module information
+#
+
+registry_info()
+{
+    local module="${1:-}"
+
+
+
+    if ! registry_exists "${module}"; then
+        return 1
+    fi
+
+
+
+cat <<EOF
+
+Модуль:
+${module}
+
+Название:
+${LSM_MODULE_NAME[$module]}
+
+Описание:
+${LSM_MODULE_DESCRIPTION[$module]}
+
+Версия:
+${LSM_MODULE_VERSION[$module]}
+
+Категория:
+${LSM_MODULE_CATEGORY[$module]}
+
+Зависимости:
+${LSM_MODULE_DEPENDENCIES[$module]:-нет}
+
+EOF
+
+}
+
+
+
+#
+# Dependency check
+#
+
+registry_check_dependencies()
+{
+    local module="${1:-}"
+
+
+
+    if ! registry_exists "${module}"; then
+
+        log_error \
+            "${REGISTRY_COMPONENT}" \
+            "Модуль отсутствует: ${module}"
+
+        return 1
+
+    fi
+
+
+
+    local deps
+
+    deps="$(registry_dependencies "${module}")"
+
+
+
+    [[ -z "${deps// /}" ]] && return 0
+
+
+
+    local dep
+
+    for dep in ${deps}
+    do
+
+        if ! registry_exists "${dep}"; then
+
+            log_error \
+                "${REGISTRY_COMPONENT}" \
+                "Модуль ${module}: отсутствует зависимость ${dep}"
+
+            return 1
+
+        fi
+
+    done
+
+
+
+    return 0
+}
+
+
+
+#
+# Resolve installation order
 #
 
 registry_resolve_order()
 {
     local requested=("$@")
 
+
     local result=()
 
 
-    LSM_RESOLVING=()
 
+    LSM_RESOLVING=()
+    LSM_RESOLVED=()
+
+
+
+    local module
 
 
     for module in "${requested[@]}"
@@ -236,10 +360,15 @@ registry_resolve_order()
     done
 
 
+
     printf "%s\n" "${result[@]}"
 }
 
 
+
+#
+# Recursive dependency resolver
+#
 
 registry_resolve_module()
 {
@@ -259,6 +388,20 @@ registry_resolve_module()
     fi
 
 
+
+    #
+    # Already resolved
+    #
+
+    if [[ "${LSM_RESOLVED[$module]:-}" == "true" ]]; then
+        return 0
+    fi
+
+
+
+    #
+    # Circular dependency detection
+    #
 
     if [[ "${LSM_RESOLVING[$module]:-}" == "true" ]]; then
 
@@ -282,20 +425,44 @@ registry_resolve_module()
 
 
 
-    for dep in ${deps}
-    do
-
-        registry_resolve_module \
-            "${dep}" \
-            "${array_name}" || return 1
-
-    done
+    local dep
 
 
+    if [[ -n "${deps// /}" ]]; then
+
+        for dep in ${deps}
+        do
+
+            if ! registry_resolve_module \
+                "${dep}" \
+                "${array_name}"
+            then
+
+                LSM_RESOLVING["${module}"]=""
+
+                return 1
+
+            fi
+
+        done
+
+    fi
+
+
+
+    #
+    # Module resolved
+    #
 
     LSM_RESOLVING["${module}"]=""
+
+    LSM_RESOLVED["${module}"]="true"
 
 
 
     eval "${array_name}+=(\"\${module}\")"
+
+
+
+    return 0
 }
