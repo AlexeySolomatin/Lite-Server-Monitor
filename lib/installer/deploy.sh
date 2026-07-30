@@ -7,111 +7,217 @@
 
 set -Eeuo pipefail
 
-# Защита от повторного подключения файла
+
 [[ -n "${LSM_DEPLOY_LOADED:-}" ]] && return 0
 readonly LSM_DEPLOY_LOADED=1
 
+
+
+readonly DEPLOY_COMPONENT="DEPLOY"
+
+
+
 #
-# Создание директории с установкой прав доступа и владельца
+# Создание директории
 #
-deploy_create_directory() {
+
+deploy_create_directory()
+{
     local target_dir="${1:-}"
     local mode="${2:-755}"
     local owner="${3:-root}"
     local group="${4:-root}"
 
-    if [[ -z "${target_dir}" ]]; then
-        return 1
-    fi
 
-    if declare -f log_debug >/dev/null 2>&1; then
-        log_debug "DEPLOY" "Создание директории: ${target_dir} (права: ${mode}, владелец: ${owner}:${group})"
-    fi
+    [[ -n "${target_dir}" ]] || return 1
+
+
+
+    log_debug \
+        "${DEPLOY_COMPONENT}" \
+        "Создание каталога: ${target_dir}"
+
+
 
     mkdir -p "${target_dir}"
+
     chmod "${mode}" "${target_dir}"
+
     chown "${owner}:${group}" "${target_dir}"
+
+
+
+    log_debug \
+        "${DEPLOY_COMPONENT}" \
+        "Каталог готов: ${target_dir}"
+
 }
 
+
+
 #
-# Установка/копирование файла с заданными правами и владельцем
+# Установка файла
 #
-deploy_install_file() {
+
+deploy_install_file()
+{
     local source_file="${1:-}"
     local target_file="${2:-}"
     local mode="${3:-644}"
     local owner="${4:-root}"
     local group="${5:-root}"
 
-    if [[ -z "${source_file}" || -z "${target_file}" ]]; then
-        return 1
-    fi
+
+
+    [[ -n "${source_file}" ]] || return 1
+    [[ -n "${target_file}" ]] || return 1
+
+
 
     if [[ ! -f "${source_file}" ]]; then
-        if declare -f log_error >/dev/null 2>&1; then
-            log_error "DEPLOY" "Исходный файл не существует: ${source_file}"
-        else
-            echo "Ошибка: Исходный файл не существует: ${source_file}" >&2
-        fi
+
+        log_error \
+            "${DEPLOY_COMPONENT}" \
+            "Источник отсутствует: ${source_file}"
+
         return 1
+
     fi
+
+
 
     local target_dir
+
     target_dir="$(dirname "${target_file}")"
 
+
+
     if [[ ! -d "${target_dir}" ]]; then
-        deploy_create_directory "${target_dir}" "755" "${owner}" "${group}"
+
+        deploy_create_directory \
+            "${target_dir}" \
+            "755" \
+            "${owner}" \
+            "${group}"
+
     fi
 
-    if declare -f log_debug >/dev/null 2>&1; then
-        log_debug "DEPLOY" "Установка файла: ${source_file} -> ${target_file} (права: ${mode})"
-    fi
 
-    cp -f "${source_file}" "${target_file}"
+
+    log_info \
+        "${DEPLOY_COMPONENT}" \
+        "Установка файла: ${target_file}"
+
+
+
+    cp -f \
+        "${source_file}" \
+        "${target_file}"
+
+
+
     chmod "${mode}" "${target_file}"
+
     chown "${owner}:${group}" "${target_file}"
+
+
+
+    if [[ ! -f "${target_file}" ]]; then
+
+        log_error \
+            "${DEPLOY_COMPONENT}" \
+            "Файл не установлен: ${target_file}"
+
+        return 1
+
+    fi
+
+
 }
 
+
+
 #
-# Создание символической ссылки
+# Создание symlink
 #
-deploy_create_symlink() {
+
+deploy_create_symlink()
+{
     local source_path="${1:-}"
     local target_link="${2:-}"
 
-    if [[ -z "${source_path}" || -z "${target_link}" ]]; then
-        return 1
-    fi
+
+
+    [[ -n "${source_path}" ]] || return 1
+    [[ -n "${target_link}" ]] || return 1
+
+
 
     if [[ ! -e "${source_path}" ]]; then
-        if declare -f log_warn >/dev/null 2>&1; then
-            log_warn "DEPLOY" "Цель для символической ссылки пока не существует: ${source_path}"
-        fi
+
+        log_warn \
+            "${DEPLOY_COMPONENT}" \
+            "Источник ссылки отсутствует: ${source_path}"
+
     fi
 
-    if declare -f log_debug >/dev/null 2>&1; then
-        log_debug "DEPLOY" "Создание символической ссылки: ${target_link} -> ${source_path}"
-    fi
+
 
     local link_dir
+
     link_dir="$(dirname "${target_link}")"
+
+
+
     if [[ ! -d "${link_dir}" ]]; then
-        deploy_create_directory "${link_dir}" "755" "root" "root"
+
+        deploy_create_directory \
+            "${link_dir}" \
+            "755" \
+            "root" \
+            "root"
+
     fi
 
-    ln -sf "${source_path}" "${target_link}"
+
+
+    log_info \
+        "${DEPLOY_COMPONENT}" \
+        "Создание ссылки: ${target_link}"
+
+
+
+    ln -sfn \
+        "${source_path}" \
+        "${target_link}"
+
 }
 
+
+
 #
-# Безопасное удаление файла или символической ссылки
+# Удаление файла или ссылки
 #
-deploy_remove_file() {
+
+deploy_remove_file()
+{
     local target_file="${1:-}"
 
-    if [[ -n "${target_file}" && ( -f "${target_file}" || -L "${target_file}" ) ]]; then
-        if declare -f log_debug >/dev/null 2>&1; then
-            log_debug "DEPLOY" "Удаление файла или символической ссылки: ${target_file}"
-        fi
+
+
+    [[ -n "${target_file}" ]] || return 0
+
+
+
+    if [[ -f "${target_file}" || -L "${target_file}" ]]; then
+
+
+        log_info \
+            "${DEPLOY_COMPONENT}" \
+            "Удаление: ${target_file}"
+
+
         rm -f "${target_file}"
+
     fi
 }
