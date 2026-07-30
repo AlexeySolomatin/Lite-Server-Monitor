@@ -2,54 +2,138 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Step 07: Permissions & Global CLI Symlinks
+# Step 07: Permissions Fix
+# Path: installer/steps/07_permissions.sh
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
-step_permissions() {
-    log_info "Setting correct permissions across LSM directories..."
 
-    local target_dir="/opt/lsm"
-    local config_dir="/etc/lsm"
-    local state_dir="/var/lib/lsm"
+readonly PERMISSIONS_STEP_COMPONENT="PERMISSIONS"
 
-    # 1. Права на исполняемый каталог /opt/lsm и модули
-    if [[ -d "${target_dir}" ]]; then
-        chmod -R 755 "${target_dir}"
-        chmod +x "${target_dir}/bin/lsm" 2>/dev/null || true
-        if [[ -d "${target_dir}/modules" ]]; then
-            find "${target_dir}/modules" -type f -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
-        fi
+
+
+step_permissions()
+{
+
+
+    log_info "${PERMISSIONS_STEP_COMPONENT}" \
+        "Применение системных прав доступа LSM."
+
+
+
+    #
+    # Проверка API permissions.sh
+    #
+
+    if ! declare -f permissions_fix_all >/dev/null 2>&1; then
+
+
+        log_error "${PERMISSIONS_STEP_COMPONENT}" \
+            "Библиотека permissions.sh не загружена."
+
+
+        return 1
+
     fi
 
-    # 2. Безопасность конфигураций (запрет чтения секретов сторонними пользователями)
-    if [[ -d "${config_dir}" ]]; then
-        chmod 750 "${config_dir}"
-        find "${config_dir}" -type f -name "*.conf" -exec chmod 600 {} + 2>/dev/null || true
-    fi
 
-    # 3. Права на директорию состояний
-    if [[ -d "${state_dir}" ]]; then
-        chmod 750 "${state_dir}"
-    fi
 
-    # 4. Создание глобальных симлинков CLI
-    log_info "Creating global CLI symlinks..."
+    #
+    # Основные системные права
+    #
 
-    if [[ -f "${target_dir}/bin/lsm" ]]; then
-        ln -sf "${target_dir}/bin/lsm" "/usr/local/bin/lsm"
-        ln -sf "${target_dir}/bin/lsm" "/usr/bin/lsm"
-        log_success "Global command 'lsm' linked to /usr/bin/lsm"
+    if permissions_fix_all; then
+
+
+        log_success "${PERMISSIONS_STEP_COMPONENT}" \
+            "Права доступа LSM успешно применены."
+
+
     else
-        log_warn "Executable ${target_dir}/bin/lsm not found, skipping symlink creation."
+
+
+        log_error "${PERMISSIONS_STEP_COMPONENT}" \
+            "Ошибка применения прав доступа."
+
+
+        return 1
+
+
     fi
+
+
+
+    #
+    # Исполняемые файлы
+    #
+
+    local lsm_root="${LSM_ROOT:-/opt/lsm}"
+
+
+
+    if [[ -d "${lsm_root}" ]]; then
+
+
+        log_info "${PERMISSIONS_STEP_COMPONENT}" \
+            "Проверка исполняемых файлов."
+
+
+
+        chmod +x \
+            "${lsm_root}/bin/lsm" \
+            2>/dev/null || true
+
+
+
+        if [[ -d "${lsm_root}/modules" ]]; then
+
+
+            find "${lsm_root}/modules" \
+                -type f \
+                -name "*.sh" \
+                -exec chmod +x {} \; \
+                2>/dev/null || true
+
+
+        fi
+
+    fi
+
+
+
+    log_success "${PERMISSIONS_STEP_COMPONENT}" \
+        "Настройка прав завершена."
+
+
+    return 0
+
 }
 
+
+
+#
+# Автономный запуск
+#
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
+
+
+    LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
     export LSM_ROOT
-    if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/common.sh"; fi
-    if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
+
+
+
+    source "${LSM_ROOT}/lib/core/common.sh"
+    source "${LSM_ROOT}/lib/core/logging.sh"
+
+
+    source "${LSM_ROOT}/lib/installer/permissions.sh"
+
+
+
     step_permissions
+
+
 fi
