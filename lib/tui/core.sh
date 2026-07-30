@@ -34,7 +34,7 @@ tui_check_terminal()
 
 
 #
-# Очистка экрана
+# Очистка экрана!
 #
 
 tui_clear()
