@@ -28,10 +28,13 @@ jobs:
           NEW_VER=$(cat VERSION | tr -d '\r\n ')
           echo "NEW_VERSION=${NEW_VER}" >> $GITHUB_ENV
 
-      # === НОВЫЙ ШАГ: Обновляем README перед коммитом ===
-      - name: Обновление версии в README.md
+      - name: Обновление версии и бейджа в README.md
         run: |
+          # 1. Обновляем текстовый маркер внизу README
           perl -0777 -pi -e "s/<!-- version:start -->.*?<!-- version:end -->/<!-- version:start -->${{ env.NEW_VERSION }}<!-- version:end -->/s" README.md
+          
+          # 2. Обновляем версию в URL графического бейджа shields.io вверху README
+          perl -pi -e "s/img\.shields\.io\/badge\/version-.*?-blue/img.shields.io\/badge\/version-${{ env.NEW_VERSION }}-blue/g" README.md
 
       - name: Пуш файлов VERSION, README.md и создание Git-тега
         uses: stefanzweifel/git-auto-commit-action@v5
