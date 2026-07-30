@@ -2,7 +2,7 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Bootstrap Installer
+# Стартовый загрузчик (Bootstrap Installer)
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -20,18 +20,18 @@ readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
 
 #
-# Минимальное bootstrap логирование
+# Минимальное bootstrap-логирование
 #
 
 bootstrap_log_info()
 {
-    printf "[INFO] %s\n" "$*"
+    printf "[ИНФО] %s\n" "$*"
 }
 
 
 bootstrap_log_error()
 {
-    printf "[ERROR] %s\n" "$*" >&2
+    printf "[ОШИБКА] %s\n" "$*" >&2
 }
 
 
@@ -47,18 +47,18 @@ trap cleanup EXIT
 
 
 printf "\n"
-printf "Lite Server Monitor Bootstrap\n"
+printf "Стартовый загрузчик Lite Server Monitor\n"
 printf "\n"
 
 
 
 #
-# Проверка root
+# Проверка прав root
 #
 
 if [[ "${EUID}" -ne 0 ]]; then
 
-    bootstrap_log_error "Please run as root (use sudo)."
+    bootstrap_log_error "Пожалуйста, запустите установку от имени root (используйте sudo)."
 
     exit 1
 
@@ -67,10 +67,10 @@ fi
 
 
 #
-# Загрузка исходников
+# Загрузка исходных файлов
 #
 
-bootstrap_log_info "Downloading Lite Server Monitor..."
+bootstrap_log_info "Загрузка Lite Server Monitor..."
 
 
 
@@ -101,7 +101,7 @@ elif command -v curl >/dev/null 2>&1; then
 else
 
 
-    bootstrap_log_error "Neither git nor curl is installed. Please install one of them and try again."
+    bootstrap_log_error "Утилиты git и curl не найдены. Пожалуйста, установите одну из них и повторите попытку."
 
     exit 1
 
@@ -111,12 +111,28 @@ fi
 
 
 #
-# Исправление прав
+# Подготовка прав доступа
 #
 
-bootstrap_log_info "Preparing installer files..."
+bootstrap_log_info "Подготовка файлов установщика..."
 
 chmod -R +x "${SOURCE_DIR}"
+
+
+
+#
+# Пауза перед передачей управления
+#
+
+bootstrap_log_info "Исходные файлы успешно загружены."
+
+# Проверка [[ -t 0 ]] гарантирует, что запрос ввода сработает только в интерактивном терминале
+if [[ -t 0 ]]; then
+    printf "\nНажмите [Enter] для запуска основного инсталлятора..."
+    read -r
+else
+    sleep 2
+fi
 
 
 
@@ -126,7 +142,7 @@ chmod -R +x "${SOURCE_DIR}"
 
 printf "\n"
 
-bootstrap_log_info "Starting installer..."
+bootstrap_log_info "Запуск основного мастера установки..."
 
 printf "\n"
 
@@ -134,22 +150,7 @@ printf "\n"
 
 #
 # ВАЖНО:
-# bash вместо exec нужен для корректной работы cleanup trap
+# Вызов через bash (вместо exec) необходим для корректного срабатывания trap cleanup
 #
 
 bash "${SOURCE_DIR}/installer/install.sh" "$@"
-
-#
-# Задержка перед передачей управления
-#
-
-bootstrap_log_info "Исходные файлы готовы. Переход к установщику..."
-
-# Вариант 1: Интерактивное ожидание нажатия Enter (рекомендуется)
-if [[ -t 0 ]]; then
-    printf "\nНажмите [Enter] для продолжения установки..."
-    read -r
-fi
-
-# Вариант 2: Фиксированная пауза на 3 секунды (если вариант 1 не нужен)
-# sleep 3
