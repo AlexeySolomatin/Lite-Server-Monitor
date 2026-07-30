@@ -25,12 +25,18 @@ jobs:
           ./lib/installer/auto-version.sh
           
           # Читаем обновившийся файл VERSION и сохраняем в переменную $GITHUB_ENV
-          NEW_VER=$(cat VERSION)
+          NEW_VER=$(cat VERSION | tr -d '\r\n ')
           echo "NEW_VERSION=${NEW_VER}" >> $GITHUB_ENV
 
-      - name: Пуш файла VERSION и создание Git-тега
+      # === НОВЫЙ ШАГ: Обновляем README перед коммитом ===
+      - name: Обновление версии в README.md
+        run: |
+          perl -0777 -pi -e "s/<!-- version:start -->.*?<!-- version:end -->/<!-- version:start -->${{ env.NEW_VERSION }}<!-- version:end -->/s" README.md
+
+      - name: Пуш файлов VERSION, README.md и создание Git-тега
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore(release): bump version [skip ci]"
-          file_pattern: 'VERSION'
+          commit_message: "chore(release): bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          # Указываем экшену следить за изменениями ОБОИХ файлов
+          file_pattern: 'VERSION README.md'
           tagging_message: 'v${{ env.NEW_VERSION }}'
