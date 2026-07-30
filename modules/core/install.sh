@@ -57,7 +57,7 @@ if [[ -f "${MODULE_DIR}/files/lsm-report.timer" ]]; then
         "644" "root" "root"
 fi
 
-# 3. Перезагрузка конфигурации systemd и активация таймера
+# 3. Перезагрузка конфигурации systemd и активация таймера!
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable lsm-report.timer || true
