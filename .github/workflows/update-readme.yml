@@ -1,34 +1,38 @@
-name: Update README Version
+name: Auto-update README on Web Commit
 
 on:
   push:
     paths:
-      - 'version'
-      - '.github/workflows/update-readme.yml'
+      - 'version'  # Триггер срабатывает только при изменении файла version
 
 jobs:
-  update-version:
+  sync-version:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Обязательно для возможности делать пуш
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Read version file
-        id: get_version
+      - name: Get version
+        id: read_version
         run: |
-          VERSION=$(cat version | tr -d '\r\n')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          VERSION=$(cat version | tr -d '\r\n ')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Update README.md
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          # Заменяем текст между комментариями на актуальную версию из файла version
+          # Меняем версию между HTML-комментариями
           perl -0777 -pi -e "s/<!-- version:start -->.*?<!-- version:end -->/<!-- version:start -->$VERSION<!-- version:end -->/s" README.md
 
-      - name: Commit and push if changed
+      - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git diff --quiet || (git commit -am "chore: auto-update readme version to ${{ steps.get_version.outputs.version }}" && git push)
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          
+          # Проверяем, изменился ли README, чтобы избежать пустых коммитов
+          if ! git diff --quiet README.md; then
+            git add README.md
+            git commit -m "chore: sync README version to $VERSION [skip ci]"
+            git push
+          fi
