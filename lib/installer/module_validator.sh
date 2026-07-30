@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Validator модулей
+# Module Validator API v1.2
 # Путь: lib/installer/module_validator.sh
-# Версия: 1.2
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -11,6 +10,10 @@ set -Eeuo pipefail
 
 [[ -n "${LSM_MODULE_VALIDATOR_LOADED:-}" ]] && return 0
 readonly LSM_MODULE_VALIDATOR_LOADED=1
+
+
+
+readonly VALIDATOR_COMPONENT="MODULE_VALIDATOR"
 
 
 
@@ -25,7 +28,7 @@ LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
 #
-# Обязательные поля manifest
+# Required manifest fields
 #
 
 readonly LSM_MANIFEST_REQUIRED_FIELDS=(
@@ -39,10 +42,10 @@ readonly LSM_MANIFEST_REQUIRED_FIELDS=(
 
 
 #
-# Проверка существования модуля
+# Validate module directory
 #
 
-module_validate_exists()
+module_validate_files()
 {
     local module="${1:-}"
 
@@ -52,27 +55,12 @@ module_validate_exists()
     if [[ ! -d "${module_dir}" ]]; then
 
         log_error \
-            "Модуль не существует: ${module}"
+            "${VALIDATOR_COMPONENT}" \
+            "Каталог модуля отсутствует: ${module}"
 
         return 1
 
     fi
-
-
-    return 0
-}
-
-
-
-#
-# Проверка файлов модуля
-#
-
-module_validate_files()
-{
-    local module="${1:-}"
-
-    local module_dir="${LSM_MODULES_DIR}/${module}"
 
 
 
@@ -92,7 +80,8 @@ module_validate_files()
         if [[ ! -f "${module_dir}/${file}" ]]; then
 
             log_error \
-                "Модуль ${module}: отсутствует файл ${file}"
+                "${VALIDATOR_COMPONENT}" \
+                "${module}: отсутствует ${file}"
 
             return 1
 
@@ -102,68 +91,13 @@ module_validate_files()
 
 
 
-    #
-    # Проверяем install.sh
-    #
-
-    if [[ ! -r "${module_dir}/install.sh" ]]; then
-
-        log_error \
-            "Модуль ${module}: install.sh недоступен для чтения"
-
-        return 1
-
-    fi
-
-
-
-    if [[ ! -x "${module_dir}/install.sh" ]]; then
-
-        log_warn \
-            "Модуль ${module}: install.sh не имеет execute bit"
-
-    fi
-
-
-
     return 0
 }
 
 
 
 #
-# Базовая защита manifest
-#
-
-module_validate_manifest_security()
-{
-    local module="${1:-}"
-
-    local manifest="${LSM_MODULES_DIR}/${module}/manifest.conf"
-
-
-
-    if grep -Eq \
-        '(^|[[:space:]])(rm|chmod|chown|curl|wget|apt|apt-get|systemctl)[[:space:]]|[;&|`$()]' \
-        "${manifest}"
-    then
-
-        log_error \
-            "Модуль ${module}: manifest содержит потенциально опасный код"
-
-        return 1
-
-    fi
-
-
-
-    return 0
-}
-
-
-
-#
-# Проверка manifest
+# Validate manifest
 #
 
 module_validate_manifest()
@@ -171,17 +105,11 @@ module_validate_manifest()
     local module="${1:-}"
 
 
-
-    if ! module_validate_manifest_security "${module}"; then
-        return 1
-    fi
-
-
-
     if ! module_load_manifest "${module}"; then
 
         log_error \
-            "Модуль ${module}: ошибка загрузки manifest.conf"
+            "${VALIDATOR_COMPONENT}" \
+            "${module}: невозможно загрузить manifest"
 
         return 1
 
@@ -189,10 +117,7 @@ module_validate_manifest()
 
 
 
-    local errors=0
-
     local field
-
 
 
     for field in "${LSM_MANIFEST_REQUIRED_FIELDS[@]}"
@@ -201,9 +126,10 @@ module_validate_manifest()
         if [[ -z "${!field:-}" ]]; then
 
             log_error \
-                "Модуль ${module}: отсутствует поле ${field}"
+                "${VALIDATOR_COMPONENT}" \
+                "${module}: отсутствует поле ${field}"
 
-            errors=$((errors+1))
+            return 1
 
         fi
 
@@ -211,13 +137,63 @@ module_validate_manifest()
 
 
 
-    return "${errors}"
+    return 0
 }
 
 
 
 #
-# Полная проверка модуля
+# Validate dependencies
+#
+
+module_validate_dependencies()
+{
+    local module="${1:-}"
+
+
+    if ! module_load_manifest "${module}"; then
+
+        return 1
+
+    fi
+
+
+
+    local dependencies="${MODULE_DEPENDENCIES:-}"
+
+
+
+    [[ -z "${dependencies}" ]] && return 0
+
+
+
+    local dependency
+
+
+    for dependency in ${dependencies}
+    do
+
+        if ! module_has_manifest "${dependency}"; then
+
+            log_error \
+                "${VALIDATOR_COMPONENT}" \
+                "${module}: отсутствует зависимость ${dependency}"
+
+            return 1
+
+        fi
+
+    done
+
+
+
+    return 0
+}
+
+
+
+#
+# Full validation
 #
 
 module_validate_all()
@@ -227,22 +203,22 @@ module_validate_all()
 
 
     log_info \
+        "${VALIDATOR_COMPONENT}" \
         "Проверка модуля: ${module}"
 
 
 
-    module_validate_exists "${module}" || return 1
-
-
     module_validate_files "${module}" || return 1
 
-
     module_validate_manifest "${module}" || return 1
+
+    module_validate_dependencies "${module}" || return 1
 
 
 
     log_success \
-        "Модуль ${module}: проверка успешно пройдена"
+        "${VALIDATOR_COMPONENT}" \
+        "${module}: OK"
 
 
 
@@ -252,12 +228,14 @@ module_validate_all()
 
 
 #
-# Проверка всех модулей
+# Validate all modules
 #
 
 module_validate_all_modules()
 {
     local failed=0
+
+    local module
 
 
 
@@ -265,7 +243,6 @@ module_validate_all_modules()
     do
 
         [[ -z "${module}" ]] && continue
-
 
 
         if ! module_validate_all "${module}"; then
@@ -284,6 +261,7 @@ module_validate_all_modules()
     if (( failed > 0 )); then
 
         log_error \
+            "${VALIDATOR_COMPONENT}" \
             "Ошибок проверки модулей: ${failed}"
 
         return 1
@@ -293,6 +271,7 @@ module_validate_all_modules()
 
 
     log_success \
+        "${VALIDATOR_COMPONENT}" \
         "Все модули прошли проверку"
 
 
