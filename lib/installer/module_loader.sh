@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Metadata Loader API v1.1
+# Module Metadata Loader API v1.2
 # Путь: lib/installer/module_loader.sh
 # ==============================================================================
 
@@ -10,6 +10,10 @@ set -Eeuo pipefail
 
 [[ -n "${LSM_MODULE_LOADER_LOADED:-}" ]] && return 0
 readonly LSM_MODULE_LOADER_LOADED=1
+
+
+
+readonly MODULE_LOADER_COMPONENT="MODULE_LOADER"
 
 
 
@@ -26,7 +30,7 @@ export LSM_MODULES_DIR
 
 
 #
-# Module metadata storage
+# Metadata
 #
 
 MODULE_ID=""
@@ -40,7 +44,7 @@ MODULE_DEFAULT=""
 
 
 #
-# Initialize loader
+# Init
 #
 
 module_loader_init()
@@ -48,7 +52,8 @@ module_loader_init()
 
     if [[ ! -d "${LSM_MODULES_DIR}" ]]; then
 
-        log_warn \
+        log_error \
+            "${MODULE_LOADER_COMPONENT}" \
             "Каталог модулей отсутствует: ${LSM_MODULES_DIR}"
 
         return 1
@@ -101,7 +106,8 @@ module_load_manifest()
 
     if [[ ! -f "${manifest}" ]]; then
 
-        log_warn \
+        log_error \
+            "${MODULE_LOADER_COMPONENT}" \
             "Manifest отсутствует: ${module}"
 
         return 1
@@ -114,8 +120,23 @@ module_load_manifest()
 
 
 
-    # shellcheck disable=SC1090
-    source "${manifest}"
+    if ! source "${manifest}"; then
+
+        log_error \
+            "${MODULE_LOADER_COMPONENT}" \
+            "Ошибка чтения manifest: ${module}"
+
+        return 1
+
+    fi
+
+
+
+    if [[ -z "${MODULE_ID}" ]]; then
+
+        MODULE_ID="${module}"
+
+    fi
 
 
 
@@ -126,14 +147,13 @@ module_load_manifest()
 
 
 #
-# List available modules
+# List modules
 #
 
 module_loader_list()
 {
 
     [[ -d "${LSM_MODULES_DIR}" ]] || return 0
-
 
 
     find "${LSM_MODULES_DIR}" \
@@ -149,171 +169,57 @@ module_loader_list()
 
 
 #
-# Metadata getters
+# Getters
 #
 
 module_get_name()
 {
-
     local module="${1:-}"
 
-
     if module_load_manifest "${module}"; then
-
         echo "${MODULE_NAME:-${module}}"
-
     else
-
         echo "${module}"
-
     fi
-
-}
-
-
-
-module_get_description()
-{
-
-    local module="${1:-}"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_DESCRIPTION:-}"
-
-    else
-
-        echo ""
-
-    fi
-
 }
 
 
 
 module_get_version()
 {
-
     local module="${1:-}"
 
-
     if module_load_manifest "${module}"; then
-
         echo "${MODULE_VERSION:-unknown}"
-
     else
-
         echo "unknown"
-
     fi
-
-}
-
-
-
-module_get_category()
-{
-
-    local module="${1:-}"
-
-
-    if module_load_manifest "${module}"; then
-
-        echo "${MODULE_CATEGORY:-unknown}"
-
-    else
-
-        echo "unknown"
-
-    fi
-
 }
 
 
 
 module_get_dependencies()
 {
-
     local module="${1:-}"
 
-
     if module_load_manifest "${module}"; then
-
         echo "${MODULE_DEPENDENCIES:-}"
-
-    else
-
-        echo ""
-
     fi
-
 }
 
 
-
-#
-# Manifest existence
-#
 
 module_has_manifest()
 {
-
     local module="${1:-}"
-
-
-    [[ -n "${module}" ]] || return 1
-
 
     [[ -f "${LSM_MODULES_DIR}/${module}/manifest.conf" ]]
-
 }
 
 
 
 #
-# Basic module validation
-#
-
-module_validate()
-{
-
-    local module="${1:-}"
-
-    local module_dir="${LSM_MODULES_DIR}/${module}"
-
-
-
-    if [[ ! -f "${module_dir}/manifest.conf" ]]; then
-
-        log_error \
-            "Модуль ${module}: отсутствует manifest.conf"
-
-        return 1
-
-    fi
-
-
-
-    if [[ ! -f "${module_dir}/install.sh" ]]; then
-
-        log_error \
-            "Модуль ${module}: отсутствует install.sh"
-
-        return 1
-
-    fi
-
-
-
-    return 0
-
-}
-
-
-
-#
-# Full module information
+# Information output
 #
 
 module_info()
@@ -322,12 +228,7 @@ module_info()
     local module="${1:-}"
 
 
-
-    if ! module_load_manifest "${module}"; then
-
-        return 1
-
-    fi
+    module_load_manifest "${module}" || return 1
 
 
 
