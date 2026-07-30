@@ -9,7 +9,7 @@ set -Eeuo pipefail
 
 
 
-readonly PACKAGES_COMPONENT="PACKAGES_STEP"
+readonly PACKAGES_STEP_COMPONENT="PACKAGES_STEP"
 
 
 
@@ -20,7 +20,7 @@ step_packages()
 
 
 
-    log_info "${PACKAGES_COMPONENT}" \
+    log_info "${PACKAGES_STEP_COMPONENT}" \
         "Установка необходимых системных пакетов."
 
 
@@ -32,7 +32,7 @@ step_packages()
     if ! update_package_cache; then
 
 
-        log_warn "${PACKAGES_COMPONENT}" \
+        log_warn "${PACKAGES_STEP_COMPONENT}" \
             "Стандартное обновление APT завершилось ошибкой."
 
 
@@ -47,7 +47,7 @@ step_packages()
         if ! update_package_cache; then
 
 
-            log_error "${PACKAGES_COMPONENT}" \
+            log_error "${PACKAGES_STEP_COMPONENT}" \
                 "Не удалось обновить индекс APT."
 
 
@@ -102,7 +102,7 @@ step_packages()
         else
 
 
-            log_error "${PACKAGES_COMPONENT}" \
+            log_error "${PACKAGES_STEP_COMPONENT}" \
                 "Ошибка установки пакета: ${pkg}"
 
 
@@ -116,7 +116,7 @@ step_packages()
 
 
 
-    log_success "${PACKAGES_COMPONENT}" \
+    log_success "${PACKAGES_STEP_COMPONENT}" \
         "Все необходимые пакеты успешно установлены."
 
 
