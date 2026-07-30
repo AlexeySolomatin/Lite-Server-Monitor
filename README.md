@@ -272,7 +272,7 @@ lsm version
 Текущая версия:
 
 
-<!-- version:start --><!-- version:end -->
+<!-- version:start -->0.0.0<!-- version:end -->
 
 
 Проект находится в активной разработке.
