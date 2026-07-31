@@ -7,105 +7,71 @@
 
 set -Eeuo pipefail
 
-
 [[ -n "${LSM_UI_LOADED:-}" ]] && return 0
 readonly LSM_UI_LOADED=1
 
-
-
-#
+# ------------------------------------------------------------------------------
 # Версия проекта
-#
-
+# ------------------------------------------------------------------------------
 if [[ -z "${PROJECT_VERSION:-}" ]]; then
-
     LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
     if [[ -f "${LSM_ROOT}/VERSION" ]]; then
+        # tr -d '\r\n' удаляет возможные CRLF из VERSION
         PROJECT_VERSION="$(tr -d '\r\n' < "${LSM_ROOT}/VERSION")"
     else
         PROJECT_VERSION="unknown"
     fi
 
     export PROJECT_VERSION
-
 fi
 
-
-
-#
+# ------------------------------------------------------------------------------
 # Цвета интерфейса
-#
-
+# ------------------------------------------------------------------------------
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
-
     COLOR_RESET=$'\033[0m'
     COLOR_BOLD=$'\033[1m'
     COLOR_CYAN=$'\033[0;36m'
-
 else
-
+    # Если не TTY или NO_COLOR=1 — отключаем цвета
     COLOR_RESET=""
     COLOR_BOLD=""
     COLOR_CYAN=""
-
 fi
 
-
-
-#
+# ------------------------------------------------------------------------------
 # Баннер
-#
-
-print_header()
-{
-
-cat <<EOF
+# ------------------------------------------------------------------------------
+print_header() {
+    cat <<EOF
 
 ${COLOR_CYAN}${COLOR_BOLD}=====================================================================
-   __    ____  __  __   (LSM) Lite Server Monitor
-  / /   / __/ /  \/  |   Lightweight System Monitoring & Alerting
- / /___ \__ \ / /\_/ |   Version: ${PROJECT_VERSION}
-/_____//____//_/   /_/   Linux Server Management Tools
+  __  ____  __  __   (LSM) Lite Server Monitor
+ / /  / __/ / \/ \|   Lightweight System Monitoring & Alerting
+/ /___ \__ \ / /_/ |  Version: ${PROJECT_VERSION}
+/_____//____//_/   /_/  Linux Server Management Tools
 =====================================================================
 ${COLOR_RESET}
 
 EOF
-
 }
 
-
-
-ui_banner()
-{
+ui_banner() {
     print_header
 }
 
-
-
-#
+# ------------------------------------------------------------------------------
 # Разделы интерфейса
-#
-
-ui_section()
-{
-
+# ------------------------------------------------------------------------------
+ui_section() {
     local title="${1:-}"
-
     printf "\n%s---> %s%s\n" \
         "${COLOR_BOLD}" \
         "${title}" \
         "${COLOR_RESET}"
-
 }
 
-
-
-#
-# Совместимость со старыми шагами
-#
-
-print_section()
-{
+print_section() {
     ui_section "$@"
 }
