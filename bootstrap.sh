@@ -25,13 +25,13 @@ readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
 bootstrap_log_info()
 {
-    printf "[ИНФО] %s\n" "$*"
+    printf "[ИНФО] [bootstrap] %s\n" "$*"
 }
 
 
 bootstrap_log_error()
 {
-    printf "[ОШИБКА] %s\n" "$*" >&2
+    printf "[ОШИБКА] [bootstrap] %s\n" "$*" >&2
 }
 
 
