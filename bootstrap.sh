@@ -52,7 +52,7 @@ bootstrap_log_info()
 
     ts="$(_timestamp)"
     
-    printf "${COLOR_GREEN}${ts}[ИНФО] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*"
+    printf "${COLOR_GREEN}${ts} [ИНФО  ] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*"
 }
 
 
@@ -62,7 +62,7 @@ bootstrap_log_error()
 
     ts="$(_timestamp)"
     
-    printf "${COLOR_RED}${ts}[ОШИБКА] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*" >&2
+    printf "${COLOR_RED}${ts} [ОШИБКА] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*" >&2
 }
 
 
