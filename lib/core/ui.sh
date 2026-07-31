@@ -47,10 +47,10 @@ print_header() {
     cat <<EOF
 
 ${COLOR_CYAN}${COLOR_BOLD}=====================================================================
-  __  ____  __  __   (LSM) Lite Server Monitor
- / /  / __/ / \/ \|   Lightweight System Monitoring & Alerting
-/ /___ \__ \ / /_/ |  Version: ${PROJECT_VERSION}
-/_____//____//_/   /_/  Linux Server Management Tools
+   __     ____    __  __   (LSM) Lite Server Monitor
+  / /    / __/   / \/ \|   Lightweight System Monitoring & Alerting
+ / /___  \__ \  / /_/  |  Version: ${PROJECT_VERSION}
+/_____/ /____/ /_/   /_/  Linux Server Management Tools
 =====================================================================
 ${COLOR_RESET}
 
