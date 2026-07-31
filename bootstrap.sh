@@ -32,18 +32,37 @@ else
 fi
 
 #
+# Время
+#
+
+_timestamp()
+{
+    date '+%Y-%m-%d %H:%M:%S'
+}
+
+
+
+#
 # Минимальное bootstrap-логирование
 #
 
 bootstrap_log_info()
 {
-    printf "${COLOR_GREEN}[ИНФО] [bootstrap]${COLOR_RESET} %s\n" "$*"
+    local ts
+
+    ts="$(_timestamp)"
+    
+    printf "${COLOR_GREEN}${ts}[ИНФО] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*"
 }
 
 
 bootstrap_log_error()
 {
-    printf "${COLOR_RED}[ОШИБКА] [bootstrap]${COLOR_RESET} %s\n" "$*" >&2
+    local ts
+
+    ts="$(_timestamp)"
+    
+    printf "${COLOR_RED}${ts}[ОШИБКА] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*" >&2
 }
 
 
