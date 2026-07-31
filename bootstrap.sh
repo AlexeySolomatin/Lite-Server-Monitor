@@ -17,7 +17,19 @@ readonly TEMP_DIR
 
 readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
-
+#
+# Определение цветов (только если вывод идет в интерактивный терминал)
+#
+if [[ -t 1 ]]; then
+    readonly COLOR_RESET="\033[0m"
+    readonly COLOR_GREEN="\033[1;32m"    
+    readonly COLOR_RED="\033[1;31m"    
+else
+    readonly COLOR_RESET=""    
+    readonly COLOR_GREEN=""    
+    readonly COLOR_RED=""
+    
+fi
 
 #
 # Минимальное bootstrap-логирование
@@ -25,13 +37,13 @@ readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
 bootstrap_log_info()
 {
-    printf "[ИНФО] [bootstrap] %s\n" "$*"
+    printf "${COLOR_GREEN}[ИНФО] [bootstrap]${COLOR_RESET} %s\n" "$*"
 }
 
 
 bootstrap_log_error()
 {
-    printf "[ОШИБКА] [bootstrap] %s\n" "$*" >&2
+    printf "${COLOR_RED}[ОШИБКА] [bootstrap]${COLOR_RESET} %s\n" "$*" >&2
 }
 
 
