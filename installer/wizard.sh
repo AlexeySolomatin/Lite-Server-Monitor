@@ -90,7 +90,9 @@ load_screen "${LSM_SCREENS_DIR}/notifications.sh"
 load_screen "${LSM_SCREENS_DIR}/telegram.sh"
 load_screen "${LSM_SCREENS_DIR}/smtp.sh"
 load_screen "${LSM_SCREENS_DIR}/ups.sh"
+load_screen "${LSM_SCREENS_DIR}/daily_report.sh"
 load_screen "${LSM_SCREENS_DIR}/summary.sh"
+
 
 
 
@@ -313,6 +315,7 @@ run_install_wizard()
     #
 
     screen_ups
+    screen_daily_report
 
 
 
