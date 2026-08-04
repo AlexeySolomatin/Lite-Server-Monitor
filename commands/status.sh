@@ -4,14 +4,14 @@
 # CLI Command: Status
 #
 # Назначение:
-#   Отображение текущего состояния LSM и системного окружения.
+#   Отображение текущего состояния установленной системы LSM.
 #
-# Возможности:
-#   - информация о системе;
-#   - версия LSM;
-#   - состояние установки;
-#   - список установленных модулей;
-#   - состояние systemd timers.
+# Показывает:
+#   - версию LSM;
+#   - информацию о сервере;
+#   - состояние каталогов LSM;
+#   - установленные модули;
+#   - активные systemd timers.
 #
 # Путь:
 #   commands/status.sh
@@ -23,7 +23,7 @@ set -Eeuo pipefail
 
 
 #
-# Определение корня проекта
+# Определение корневого каталога LSM
 #
 
 if [[ -z "${LSM_ROOT:-}" ]]; then
@@ -38,38 +38,28 @@ export LSM_ROOT
 
 
 #
-# Загрузка базовых библиотек LSM
+# Загрузка библиотек LSM
 #
 
-if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
+for library in \
+    "lib/core/common.sh" \
+    "lib/core/logging.sh" \
+    "lib/core/ui.sh"
+do
 
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/common.sh"
+    if [[ -f "${LSM_ROOT}/${library}" ]]; then
 
-fi
+        # shellcheck source=/dev/null
+        source "${LSM_ROOT}/${library}"
 
+    fi
 
-
-if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
-
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/logging.sh"
-
-fi
-
-
-
-if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
-
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/ui.sh"
-
-fi
+done
 
 
 
 #
-# Константы
+# Компонент логирования
 #
 
 readonly STATUS_COMPONENT="STATUS"
@@ -77,216 +67,19 @@ readonly STATUS_COMPONENT="STATUS"
 
 
 #
-# Основная функция статуса
+# Получение версии LSM
 #
 
-show_status()
+get_lsm_version()
 {
-
-    ui_section "LSM Monitor Status"
-
-
-
-    #
-    # Версия LSM
-    #
 
     if [[ -f "${LSM_ROOT}/VERSION" ]]; then
 
-
-        local version
-
-        version="$(tr -d '\r\n' < "${LSM_ROOT}/VERSION")"
-
-
-        printf "Версия LSM: %s\n" "${version}"
-
+        tr -d '\r\n' < "${LSM_ROOT}/VERSION"
 
     else
 
-
-        printf "Версия LSM: неизвестна\n"
-
-
-    fi
-
-
-
-    printf "\n"
-
-
-
-    #
-    # Информация о системе
-    #
-
-    printf "Система:\n"
-
-    printf "  ОС:       %s\n" \
-        "$(uname -srm)"
-
-
-
-    printf "  Имя узла: %s\n" \
-        "$(hostname)"
-
-
-
-    printf "  Время работы: %s\n" \
-        "$(uptime -p 2>/dev/null || uptime)"
-
-
-
-    printf "\n"
-
-
-
-    #
-    # Проверка установки LSM
-    #
-
-    printf "Состояние установки:\n"
-
-
-    if [[ -d "/etc/lsm" ]] || \
-       [[ -d "/var/lib/lsm" ]]; then
-
-
-        printf "  ✓ LSM установлен\n"
-
-
-    else
-
-
-        printf "  ✗ LSM не обнаружен\n"
-
-
-    fi
-
-
-
-    printf "\n"
-
-
-
-    #
-    # Установленные модули
-    #
-
-    printf "Модули LSM:\n"
-
-
-    local state_dir="${LSM_DATA_DIR:-/var/lib/lsm}/modules"
-
-
-    if [[ -d "${state_dir}" ]]; then
-
-
-        local modules_found=false
-
-
-        while read -r module_file
-        do
-
-            modules_found=true
-
-
-            printf "  ✓ %s\n" \
-                "$(basename "${module_file}" .installed)"
-
-
-        done < <(
-            find "${state_dir}" \
-                -name "*.installed" \
-                -type f \
-                2>/dev/null \
-                | sort
-        )
-
-
-
-        if [[ "${modules_found}" == "false" ]]; then
-
-            printf "  Нет установленных модулей\n"
-
-        fi
-
-
-    else
-
-
-        printf "  Каталог состояния отсутствует\n"
-
-
-    fi
-
-
-
-    printf "\n"
-
-
-
-    #
-    # Проверка systemd
-    #
-
-    printf "Systemd timers:\n"
-
-
-
-    if command -v systemctl >/dev/null 2>&1; then
-
-
-
-        local timers
-
-
-        timers="$(
-            systemctl list-timers \
-                "lsm-*" \
-                --no-pager \
-                --no-legend \
-                2>/dev/null \
-                || true
-        )"
-
-
-
-        if [[ -n "${timers}" ]]; then
-
-
-            printf "%s\n" "${timers}"
-
-
-        else
-
-
-            printf "  Активные таймеры LSM отсутствуют\n"
-
-
-        fi
-
-
-
-    else
-
-
-        if declare -f log_warn >/dev/null 2>&1; then
-
-
-            log_warn \
-                "${STATUS_COMPONENT}" \
-                "Systemd отсутствует в текущей системе."
-
-
-        else
-
-
-            printf "  Systemd отсутствует\n"
-
-
-        fi
-
+        echo "unknown"
 
     fi
 
@@ -295,7 +88,250 @@ show_status()
 
 
 #
-# Запуск
+# Проверка установки LSM
+#
+
+check_installation()
+{
+
+    local result=0
+
+
+
+    printf "Состояние установки:\n"
+
+
+
+    if [[ -d "/etc/lsm" ]]; then
+
+        printf "  ✓ Конфигурация: /etc/lsm\n"
+
+    else
+
+        printf "  ✗ Конфигурация отсутствует: /etc/lsm\n"
+
+        result=1
+
+    fi
+
+
+
+    if [[ -d "/var/lib/lsm" ]]; then
+
+        printf "  ✓ Данные: /var/lib/lsm\n"
+
+    else
+
+        printf "  ✗ Данные отсутствуют: /var/lib/lsm\n"
+
+        result=1
+
+    fi
+
+
+
+    if [[ -d "/var/log/lsm" ]]; then
+
+        printf "  ✓ Логи: /var/log/lsm\n"
+
+    else
+
+        printf "  ! Каталог логов отсутствует\n"
+
+    fi
+
+
+
+    return "${result}"
+
+}
+
+
+
+#
+# Вывод установленных модулей
+#
+
+show_modules()
+{
+
+    local state_dir="/var/lib/lsm/modules"
+
+
+
+    printf "Модули LSM:\n"
+
+
+
+    if [[ ! -d "${state_dir}" ]]; then
+
+        printf "  Нет данных о модулях\n"
+
+        return 0
+
+    fi
+
+
+
+    local count=0
+
+
+
+    while read -r file
+    do
+
+        [[ -z "${file}" ]] && continue
+
+
+        local module
+
+        module="$(basename "${file}" .installed)"
+
+
+        local installed_date
+
+        installed_date="$(cat "${file}")"
+
+
+
+        printf "  ✓ %-15s (%s)\n" \
+            "${module}" \
+            "${installed_date}"
+
+
+
+        count=$((count+1))
+
+
+    done < <(
+        find "${state_dir}" \
+            -type f \
+            -name "*.installed" \
+            2>/dev/null \
+            | sort
+    )
+
+
+
+    if (( count == 0 )); then
+
+        printf "  Нет установленных модулей\n"
+
+    else
+
+        printf "Всего модулей: %s\n" "${count}"
+
+    fi
+
+}
+
+
+
+#
+# Вывод systemd timers
+#
+
+show_timers()
+{
+
+    printf "Systemd timers:\n"
+
+
+
+    if ! command -v systemctl >/dev/null 2>&1; then
+
+        printf "  Systemd недоступен\n"
+
+        return 0
+
+    fi
+
+
+
+    local timers
+
+
+    timers="$(
+        systemctl list-timers \
+            "lsm-*" \
+            --no-pager \
+            --no-legend \
+            2>/dev/null \
+            || true
+    )"
+
+
+
+    if [[ -z "${timers}" ]]; then
+
+        printf "  Активные таймеры отсутствуют\n"
+
+    else
+
+        printf "%s\n" "${timers}"
+
+    fi
+
+}
+
+
+
+#
+# Основная функция
+#
+
+show_status()
+{
+
+    ui_section "Состояние Lite Server Monitor"
+
+
+
+    printf "Версия LSM: %s\n\n" \
+        "$(get_lsm_version)"
+
+
+
+    printf "Информация о сервере:\n"
+
+
+    printf "  ОС:          %s\n" \
+        "$(uname -srm)"
+
+
+    printf "  Имя узла:    %s\n" \
+        "$(hostname)"
+
+
+    printf "  Время работы: %s\n\n" \
+        "$(uptime -p 2>/dev/null || uptime)"
+
+
+
+    check_installation || true
+
+
+
+    printf "\n"
+
+
+
+    show_modules
+
+
+
+    printf "\n"
+
+
+
+    show_timers
+
+}
+
+
+
+#
+# Запуск команды
 #
 
 show_status
