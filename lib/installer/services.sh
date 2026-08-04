@@ -2,19 +2,51 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Библиотека управления службами Systemd
-# Путь: lib/installer/services.sh
+#
+# Путь:
+#   lib/installer/services.sh
+#
+# Назначение:
+#   Управление системными службами Linux через systemd.
+#
+# Поддерживаемые операции:
+#
+#   - проверка существования службы;
+#   - проверка состояния active/enabled;
+#   - включение автозапуска;
+#   - отключение автозапуска;
+#   - запуск службы;
+#   - остановка службы;
+#   - перезапуск службы;
+#   - перечитывание конфигурации службы;
+#   - комбинированные операции.
+#
+# Используется установщиком LSM при развертывании сервисов.
+#
+# Требования:
+#   - Bash 4+
+#   - systemd
+#   - права root для операций изменения состояния служб
+#
 # ==============================================================================
+
 
 set -Eeuo pipefail
 
 
+
+#
+# Защита от повторной загрузки
+#
+
 [[ -n "${LSM_SERVICES_LOADED:-}" ]] && return 0
+
 readonly LSM_SERVICES_LOADED=1
 
 
 
 #
-# Компонент
+# Компонент логирования
 #
 
 readonly SERVICES_COMPONENT="SERVICES"
@@ -22,60 +54,85 @@ readonly SERVICES_COMPONENT="SERVICES"
 
 
 #
-# Проверка root
+# Проверка прав root
+#
+# Операции изменения systemd требуют root.
 #
 
 services_check_root()
 {
+
     if [[ "${EUID}" -ne 0 ]]; then
+
 
         log_error "${SERVICES_COMPONENT}" \
             "Операции systemd требуют права root."
 
+
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# Проверка имени unit
+# Проверка корректности имени unit
+#
+# Разрешены стандартные имена systemd:
+#
+# example.service
+# example@instance.service
 #
 
 _services_require_unit()
 {
+
     local unit="${1:-}"
 
 
-    [[ -n "${unit}" ]] || {
+
+    if [[ -z "${unit}" ]]; then
+
 
         log_error "${SERVICES_COMPONENT}" \
             "Имя службы не указано."
 
+
         return 1
-    }
+
+
+    fi
 
 
 
-    [[ "${unit}" =~ ^[a-zA-Z0-9@._-]+\.service$ ]] || {
+    if [[ ! "${unit}" =~ ^[a-zA-Z0-9@._-]+\.service$ ]]; then
+
 
         log_error "${SERVICES_COMPONENT}" \
             "Некорректное имя службы: ${unit}"
 
+
         return 1
-    }
+
+
+    fi
+
 }
 
 
 
 #
-# Проверка существования unit
+# Проверка существования службы
 #
 
 services_exists()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -87,75 +144,90 @@ services_exists()
         --no-legend \
         2>/dev/null \
         | grep -q "^${unit}"
+
 }
 
 
 
 #
-# Проверка enabled
+# Проверка включения автозапуска
 #
 
 services_is_enabled()
 {
+
     local unit="${1:-}"
 
 
+
     _services_require_unit "${unit}" || return 1
+
 
 
     systemctl is-enabled \
         "${unit}" \
         >/dev/null 2>&1
+
 }
 
 
 
 #
-# Проверка active
+# Проверка текущего состояния службы
 #
 
 services_is_active()
 {
+
     local unit="${1:-}"
 
 
+
     _services_require_unit "${unit}" || return 1
+
 
 
     systemctl is-active \
         "${unit}" \
         >/dev/null 2>&1
+
 }
 
 
 
 #
-# Получение статуса службы
+# Полный статус службы
 #
 
 services_status()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
 
 
+
     systemctl status \
         "${unit}" \
         --no-pager
+
 }
 
 
 
 #
-# daemon reload
+# Перечитать конфигурацию systemd
 #
 
 services_daemon_reload()
 {
 
+
     services_check_root || return 1
+
 
 
     log_info "${SERVICES_COMPONENT}" \
@@ -179,18 +251,22 @@ services_daemon_reload()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# enable
+# Включение автозапуска службы
 #
 
 services_enable()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -201,10 +277,13 @@ services_enable()
 
     if services_is_enabled "${unit}"; then
 
+
         log_info "${SERVICES_COMPONENT}" \
             "Служба уже включена: ${unit}"
 
+
         return 0
+
 
     fi
 
@@ -231,18 +310,22 @@ services_enable()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# disable
+# Отключение автозапуска службы
 #
 
 services_disable()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -253,10 +336,13 @@ services_disable()
 
     if ! services_is_enabled "${unit}"; then
 
+
         log_info "${SERVICES_COMPONENT}" \
             "Служба уже отключена: ${unit}"
 
+
         return 0
+
 
     fi
 
@@ -283,18 +369,22 @@ services_disable()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# start
+# Запуск службы
 #
 
 services_start()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -305,10 +395,13 @@ services_start()
 
     if services_is_active "${unit}"; then
 
+
         log_info "${SERVICES_COMPONENT}" \
             "Служба уже запущена: ${unit}"
 
+
         return 0
+
 
     fi
 
@@ -335,18 +428,22 @@ services_start()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# stop
+# Остановка службы
 #
 
 services_stop()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -357,10 +454,13 @@ services_stop()
 
     if ! services_is_active "${unit}"; then
 
+
         log_info "${SERVICES_COMPONENT}" \
             "Служба уже остановлена: ${unit}"
 
+
         return 0
+
 
     fi
 
@@ -387,18 +487,22 @@ services_stop()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# restart
+# Перезапуск службы
 #
 
 services_restart()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -428,18 +532,22 @@ services_restart()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# reload
+# Reload службы
 #
 
 services_reload()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
@@ -469,41 +577,53 @@ services_reload()
 
         return 1
 
+
     fi
+
 }
 
 
 
 #
-# enable + start
+# Включить автозапуск и запустить службу
 #
 
 services_enable_and_start()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
 
 
+
     services_enable "${unit}"
+
     services_start "${unit}"
+
 }
 
 
 
 #
-# stop + disable
+# Остановить и отключить службу
 #
 
 services_stop_and_disable()
 {
+
     local unit="${1:-}"
+
 
 
     _services_require_unit "${unit}" || return 1
 
 
+
     services_stop "${unit}"
+
     services_disable "${unit}"
+
 }
