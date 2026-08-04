@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Master Installation Script
-# -----------------------------------------------------------------------------
+# Главный скрипт установки
+#
+# Назначение:
+#   Запускает установку LSM:
+#
+#   - проверка окружения;
+#   - загрузка библиотек;
+#   - запуск мастера установки;
+#   - выполнение этапов установки;
+#   - создание CLI команды lsm.
+# ==============================================================================
+
 
 set -Eeuo pipefail
 
@@ -14,6 +23,7 @@ set -Eeuo pipefail
 #
 
 INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 LSM_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
 
 export LSM_ROOT
@@ -22,7 +32,7 @@ export INSTALLER_DIR
 
 
 #
-# Загрузка библиотек
+# Подключение библиотек
 #
 
 source "${LSM_ROOT}/lib/core/logging.sh"
@@ -40,7 +50,7 @@ source "${LSM_ROOT}/lib/installer/module_validator.sh"
 
 
 #
-# Компонент
+# Компонент установки
 #
 
 readonly INSTALL_COMPONENT="INSTALLER"
@@ -48,7 +58,7 @@ readonly INSTALL_COMPONENT="INSTALLER"
 
 
 #
-# Версия
+# Версия проекта
 #
 
 if [[ -f "${LSM_ROOT}/VERSION" ]]; then
@@ -66,11 +76,12 @@ export PROJECT_VERSION
 
 
 #
-# Обработка ошибок
+# Обработка критических ошибок
 #
 
 trap_install_error()
 {
+
     local exit_code=$?
     local line_no=$1
 
@@ -81,11 +92,13 @@ trap_install_error()
     log_error "${INSTALL_COMPONENT}" \
         "Критическая ошибка установки. Строка: ${line_no}, код: ${exit_code}"
 
+
     log_error "${INSTALL_COMPONENT}" \
-        "Установка Lite Server Monitor прервана."
+        "Установка LSM остановлена."
 
 
     exit "${exit_code}"
+
 }
 
 
@@ -94,38 +107,48 @@ trap 'trap_install_error $LINENO' ERR
 
 
 #
-# Проверка root
+# Проверка прав администратора
 #
 
 if declare -f check_root >/dev/null 2>&1; then
 
+
     check_root
+
 
 else
 
+
     if [[ "${EUID}" -ne 0 ]]; then
 
-        echo "ERROR: installer requires root privileges."
+
+        echo "Ошибка: установка требует права root."
+
         exit 1
 
+
     fi
+
 
 fi
 
 
 
 #
-# Режим установки
+# Определение режима запуска
 #
 
 NON_INTERACTIVE=false
 
 
-if [[ "${1:-}" == "--quiet" ||
-      "${1:-}" == "--non-interactive" ||
-      "${1:-}" == "-y" ]]; then
+
+if [[ "${1:-}" == "--quiet" ]] || \
+   [[ "${1:-}" == "--non-interactive" ]] || \
+   [[ "${1:-}" == "-y" ]]; then
+
 
     NON_INTERACTIVE=true
+
 
 fi
 
@@ -139,29 +162,68 @@ registry_load_default
 
 
 
+#
+# Интерактивная установка
+#
+
 if [[ "${NON_INTERACTIVE}" == "false" ]]; then
+
 
 
     if [[ -f "${INSTALLER_DIR}/wizard.sh" ]]; then
 
+
         source "${INSTALLER_DIR}/wizard.sh"
 
+
         run_install_wizard
+
+
+    else
+
+
+        log_error "${INSTALL_COMPONENT}" \
+            "Не найден мастер установки wizard.sh"
+
+
+        exit 1
+
 
     fi
 
 
 
+#
+# Автоматическая установка
+#
+
 else
 
 
     log_info "${INSTALL_COMPONENT}" \
-        "Запуск установки в автоматическом режиме."
+        "Запуск автоматической установки."
 
 
 
-    INSTALL_MODE="${INSTALL_MODE:-full}"
-    NOTIFICATION_METHOD="${NOTIFICATION_METHOD:-none}"
+    #
+    # Стандартная установка без вопросов
+    #
+
+    INSTALL_MODE="standard"
+
+    NOTIFICATION_METHOD="none"
+
+
+
+    INSTALL_UPS=true
+    UPS_PROFILE="default"
+
+
+
+    DAILY_REPORT_ENABLED=true
+    DAILY_REPORT_TIME="09:00"
+
+
 
     declare -a SELECTED_MODULES=()
 
@@ -170,11 +232,10 @@ else
     while read -r module; do
 
 
-        if [[ "$(registry_default "${module}")" == "yes" ]]; then
+        [[ -z "${module}" ]] && continue
 
-            SELECTED_MODULES+=("${module}")
 
-        fi
+        SELECTED_MODULES+=("${module}")
 
 
     done < <(registry_list)
@@ -190,7 +251,7 @@ fi
 #
 
 log_info "${INSTALL_COMPONENT}" \
-    "Запуск Lite Server Monitor v${PROJECT_VERSION}"
+    "Lite Server Monitor v${PROJECT_VERSION}"
 
 
 
@@ -203,10 +264,11 @@ registry_list
 
 
 #
-# Шаги установки
+# Выполнение этапов установки
 #
 
 STEPS=(
+
     "01_environment.sh"
     "02_packages.sh"
     "03_directories.sh"
@@ -215,6 +277,7 @@ STEPS=(
     "06_services.sh"
     "07_permissions.sh"
     "08_finish.sh"
+
 )
 
 
@@ -222,14 +285,16 @@ STEPS=(
 for step_script in "${STEPS[@]}"; do
 
 
+
     step_path="${INSTALLER_DIR}/steps/${step_script}"
+
 
 
     if [[ ! -f "${step_path}" ]]; then
 
 
         log_error "${INSTALL_COMPONENT}" \
-            "Отсутствует обязательный шаг: ${step_path}"
+            "Отсутствует этап установки: ${step_path}"
 
 
         exit 1
@@ -240,7 +305,7 @@ for step_script in "${STEPS[@]}"; do
 
 
     log_info "${INSTALL_COMPONENT}" \
-        "Выполнение шага: ${step_script}"
+        "Выполнение этапа: ${step_script}"
 
 
 
@@ -248,30 +313,32 @@ for step_script in "${STEPS[@]}"; do
 
 
 
-    step_func_name="$(
+    step_name="$(
         echo "${step_script}" |
         sed -E 's/^[0-9]+_//; s/\.sh$//'
     )"
 
 
-    step_func_name="step_${step_func_name}"
+
+    step_function="step_${step_name}"
 
 
 
-    if declare -f "${step_func_name}" >/dev/null 2>&1; then
+    if declare -f "${step_function}" >/dev/null 2>&1; then
 
 
-        "${step_func_name}"
+        "${step_function}"
 
 
     else
 
 
         log_warn "${INSTALL_COMPONENT}" \
-            "Функция шага отсутствует: ${step_func_name}"
+            "Функция этапа отсутствует: ${step_function}"
 
 
     fi
+
 
 
 done
@@ -279,7 +346,7 @@ done
 
 
 #
-# Создание CLI ссылки
+# Создание CLI команды
 #
 
 deploy_create_symlink \
@@ -289,15 +356,15 @@ deploy_create_symlink \
 
 
 #
-# Завершение
+# Завершение установки
 #
 
 echo
 
 
 log_success "${INSTALL_COMPONENT}" \
-    "Lite Server Monitor v${PROJECT_VERSION} успешно установлен."
+    "Lite Server Monitor v${PROJECT_VERSION} установлен успешно."
 
 
 log_info "${INSTALL_COMPONENT}" \
-    "Для справки выполните: lsm help"
+    "Команда управления: lsm help"
