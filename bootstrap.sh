@@ -17,19 +17,27 @@ readonly TEMP_DIR
 
 readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
 
+
+
 #
-# Определение цветов (только если вывод идет в интерактивный терминал)
+# Цвета
 #
+
 if [[ -t 1 ]]; then
+
     readonly COLOR_RESET="\033[0m"
-    readonly COLOR_GREEN="\033[1;32m"    
-    readonly COLOR_RED="\033[1;31m"    
+    readonly COLOR_GREEN="\033[1;32m"
+    readonly COLOR_RED="\033[1;31m"
+
 else
-    readonly COLOR_RESET=""    
-    readonly COLOR_GREEN=""    
+
+    readonly COLOR_RESET=""
+    readonly COLOR_GREEN=""
     readonly COLOR_RED=""
-    
+
 fi
+
+
 
 #
 # Время
@@ -43,7 +51,7 @@ _timestamp()
 
 
 #
-# Минимальное bootstrap-логирование
+# Bootstrap logging
 #
 
 bootstrap_log_info()
@@ -51,9 +59,14 @@ bootstrap_log_info()
     local ts
 
     ts="$(_timestamp)"
-    
-    printf "${COLOR_GREEN}${ts} [ИНФО  ] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*"
+
+    printf "%b%s [ИНФО  ] [BOOTSTRAP]%b %s\n" \
+        "${COLOR_GREEN}" \
+        "${ts}" \
+        "${COLOR_RESET}" \
+        "$*"
 }
+
 
 
 bootstrap_log_error()
@@ -61,11 +74,19 @@ bootstrap_log_error()
     local ts
 
     ts="$(_timestamp)"
-    
-    printf "${COLOR_RED}${ts} [ОШИБКА] [BOOTSTRAP]${COLOR_RESET} %s\n" "$*" >&2
+
+    printf "%b%s [ОШИБКА] [BOOTSTRAP]%b %s\n" \
+        "${COLOR_RED}" \
+        "${ts}" \
+        "${COLOR_RESET}" \
+        "$*" >&2
 }
 
 
+
+#
+# Cleanup
+#
 
 cleanup()
 {
@@ -78,18 +99,19 @@ trap cleanup EXIT
 
 
 printf "\n"
-printf "Стартовый загрузчик Lite Server Monitor\n"
+printf "Lite Server Monitor Bootstrap Installer\n"
 printf "\n"
 
 
 
 #
-# Проверка прав root
+# Root check
 #
 
 if [[ "${EUID}" -ne 0 ]]; then
 
-    bootstrap_log_error "Пожалуйста, запустите установку от имени root (используйте sudo)."
+    bootstrap_log_error \
+        "Пожалуйста, запустите установку от имени root (sudo)."
 
     exit 1
 
@@ -98,10 +120,11 @@ fi
 
 
 #
-# Загрузка исходных файлов
+# Download sources
 #
 
-bootstrap_log_info "Загрузка Lite Server Monitor..."
+bootstrap_log_info \
+    "Загрузка Lite Server Monitor..."
 
 
 
@@ -132,7 +155,8 @@ elif command -v curl >/dev/null 2>&1; then
 else
 
 
-    bootstrap_log_error "Утилиты git и curl не найдены. Пожалуйста, установите одну из них и повторите попытку."
+    bootstrap_log_error \
+        "Не найден git или curl."
 
     exit 1
 
@@ -142,49 +166,55 @@ fi
 
 
 #
-# Подготовка прав доступа
+# Prepare permissions
 #
 
-bootstrap_log_info "Подготовка файлов установщика..."
+bootstrap_log_info \
+    "Подготовка файлов установщика..."
+
+
 
 chmod -R +x "${SOURCE_DIR}"
 
 
 
 #
-# Пауза перед передачей управления
+# Delay
 #
 
-bootstrap_log_info "Исходные файлы успешно загружены."
+bootstrap_log_info \
+    "Исходные файлы успешно загружены."
 
-# Проверяем, доступен ли управляющий терминал /dev/tty
-if [[ -c /dev/tty ]]; then
-    printf "\nНажмите [Enter] для запуска основного инсталлятора..."
-    # Читаем нажатие клавиши напрямую из физического терминала пользователя,
-    # игнорируя перенаправление stdin от curl/wget
-    read -r _ < /dev/tty
-else
-    # Если терминала нет вообще (например, запуск из cron или CI/CD)
-    sleep 3
-fi
+
+
+bootstrap_log_info \
+    "Запуск основного мастера установки через 3 секунды..."
+
+
+
+sleep 3
 
 
 
 #
-# Запуск основного установщика
+# Start installer
 #
-
-printf "\n"
-
-bootstrap_log_info "Запуск основного мастера установки..."
 
 printf "\n"
 
 
 
+bootstrap_log_info \
+    "Запуск installer/install.sh..."
+
+
+
+printf "\n"
+
+
+
 #
-# ВАЖНО:
-# Вызов через bash (вместо exec) необходим для корректного срабатывания trap cleanup
+# Вызов через bash сохраняет trap cleanup
 #
 
 bash "${SOURCE_DIR}/installer/install.sh" "$@"
