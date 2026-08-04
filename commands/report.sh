@@ -1,57 +1,230 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# CLI Команда: Генератор ежедневного отчета (Report / Daily Digest)
-# Путь: commands/report.sh
+# CLI Команда: Генератор отчетов
+#
+# Назначение:
+#   Создание диагностического отчета LSM.
+#
+# Возможности:
+#   - вывод отчета в терминал;
+#   - сохранение отчета в файл;
+#   - отправка через систему уведомлений.
+#
+# Использование:
+#
+#   lsm report
+#   lsm report --save
+#   lsm report --send
+#
+# Путь:
+#   commands/report.sh
 # ==============================================================================
+
 
 set -Eeuo pipefail
 
-LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
 
-# Подключение библиотек ядра
-if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/common.sh"; fi
-if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
-if [[ -f "${LSM_ROOT}/lib/core/report.sh" ]]; then source "${LSM_ROOT}/lib/core/report.sh"; fi
 
-SEND_NOTIFICATION=false
+#
+# Определение корня LSM
+#
 
-# Разбор аргументов командной строки
-for arg in "$@"; do
-    case "${arg}" in
-        --send|-s)
-            SEND_NOTIFICATION=true
-            ;;
-    esac
+if [[ -z "${LSM_ROOT:-}" ]]; then
+
+    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+fi
+
+
+export LSM_ROOT
+
+
+
+#
+# Загрузка библиотек
+#
+
+for library in \
+    "lib/core/common.sh" \
+    "lib/core/logging.sh" \
+    "lib/core/ui.sh" \
+    "lib/core/report.sh"
+do
+
+    if [[ -f "${LSM_ROOT}/${library}" ]]; then
+
+        # shellcheck source=/dev/null
+        source "${LSM_ROOT}/${library}"
+
+    fi
+
 done
 
-# Выполнение генерации и отправка/вывод
-if [[ "${SEND_NOTIFICATION}" == "true" ]]; then
-    report_output="$(report_generate_full)"
-    
-    notify_script="${LSM_ROOT}/lib/notifications/notify.sh"
-    if [[ -f "${notify_script}" && -x "${notify_script}" ]]; then
-        "${notify_script}" "daily_report" "OK" "${report_output}"
-        if declare -f log_success >/dev/null 2>&1; then
-            log_success "Ежедневный отчет успешно отправлен через диспетчер уведомлений."
-        fi
-    else
-        if declare -f log_error >/dev/null 2>&1; then
-            log_error "Скрипт отправки уведомлений не найден или не исполняем: ${notify_script}"
-        else
-            echo "[!] Ошибка: Диспетчер уведомлений не найден по пути ${notify_script}" >&2
-        fi
-        exit 1
-    fi
-else
-    if declare -f ui_section >/dev/null 2>&1; then
-        ui_section "Диагностический отчет LSM"
-    fi
-    
+
+
+readonly REPORT_COMPONENT="REPORT"
+
+
+
+#
+# Параметры запуска
+#
+
+SEND_NOTIFICATION=false
+SAVE_REPORT=false
+
+
+
+#
+# Разбор аргументов
+#
+
+for arg in "$@"
+do
+
+    case "${arg}" in
+
+
+        --send|-s)
+
+            SEND_NOTIFICATION=true
+
+            ;;
+
+
+        --save|-o)
+
+            SAVE_REPORT=true
+
+            ;;
+
+
+        *)
+
+            ;;
+
+    esac
+
+done
+
+
+
+#
+# Проверка генератора
+#
+
+if ! declare -f report_generate_full >/dev/null 2>&1; then
+
+
+    log_error \
+        "${REPORT_COMPONENT}" \
+        "Библиотека генерации отчета недоступна."
+
+
+    exit 1
+
+
+fi
+
+
+
+#
+# Создание отчета
+#
+
+report_content="$(
     report_generate_full
-    echo ""
-    
-    if declare -f log_success >/dev/null 2>&1; then
-        log_success "Отчет успешно сформирован."
+)"
+
+
+
+#
+# Сохранение отчета
+#
+
+if [[ "${SAVE_REPORT}" == "true" ]]; then
+
+
+    REPORT_DIR="/var/lib/lsm/reports"
+
+
+    mkdir -p "${REPORT_DIR}"
+
+
+    REPORT_FILE="${REPORT_DIR}/lsm-report-$(date +%F_%H-%M-%S).txt"
+
+
+
+    printf "%s\n" \
+        "${report_content}" \
+        > "${REPORT_FILE}"
+
+
+
+    chmod 640 "${REPORT_FILE}"
+
+
+
+    log_success \
+        "${REPORT_COMPONENT}" \
+        "Отчет сохранен: ${REPORT_FILE}"
+
+
+fi
+
+
+
+#
+# Отправка уведомления
+#
+
+if [[ "${SEND_NOTIFICATION}" == "true" ]]; then
+
+
+    notify_script="${LSM_ROOT}/lib/notifications/notify.sh"
+
+
+
+    if [[ -x "${notify_script}" ]]; then
+
+
+        "${notify_script}" \
+            "daily_report" \
+            "OK" \
+            "${report_content}"
+
+
+
+        log_success \
+            "${REPORT_COMPONENT}" \
+            "Отчет отправлен."
+
+
+    else
+
+
+        log_error \
+            "${REPORT_COMPONENT}" \
+            "Модуль уведомлений отсутствует."
+
+
+        exit 1
+
+
     fi
+
+
+else
+
+
+    ui_section \
+        "Отчет Lite Server Monitor"
+
+
+
+    printf "%s\n" \
+        "${report_content}"
+
+
 fi
