@@ -2,21 +2,28 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Мастер интерактивной установки
-# Путь: installer/wizard.sh
+#
+# Путь:
+#   installer/wizard.sh
 #
 # Назначение:
-#   Управляет последовательностью экранов установки:
+#   Управляет интерактивным процессом установки LSM.
+#
+# Режимы:
 #
 #   standard:
-#       - установка всех модулей;
-#       - установка стандартных конфигураций;
-#       - настройка только уведомлений.
+#       - установка всех зарегистрированных модулей;
+#       - стандартная конфигурация системы;
+#       - включение ИБП;
+#       - включение ежедневного отчета;
+#       - запрос только данных уведомлений.
 #
 #   custom:
 #       - выбор модулей;
-#       - настройка дополнительных параметров.
+#       - выбор уведомлений;
+#       - настройка ИБП;
+#       - настройка ежедневного отчета.
 # ==============================================================================
-
 
 set -Eeuo pipefail
 
@@ -38,49 +45,37 @@ readonly LSM_SCREENS_DIR="${LSM_ROOT}/installer/screens"
 
 load_screen()
 {
-
-    local screen="${1}"
+    local screen="$1"
 
 
     if [[ -f "${screen}" ]]; then
 
-
         # shellcheck source=/dev/null
         source "${screen}"
 
-
     else
 
-
-        echo "Ошибка: отсутствует экран установки ${screen}" >&2
-
+        echo "Ошибка: отсутствует экран установки: ${screen}" >&2
         exit 1
 
-
     fi
-
 }
 
 
 
 #
-# Загрузка реестра модулей
+# Загрузка registry
 #
 
 if [[ -f "${LSM_ROOT}/lib/installer/registry.sh" ]]; then
 
-
     # shellcheck source=/dev/null
     source "${LSM_ROOT}/lib/installer/registry.sh"
 
-
 else
 
-
     echo "Ошибка: отсутствует registry.sh" >&2
-
     exit 1
-
 
 fi
 
@@ -105,21 +100,19 @@ load_screen "${LSM_SCREENS_DIR}/summary.sh"
 #
 # Стандартная установка
 #
-# Используются все зарегистрированные модули.
+# Устанавливаются все доступные модули.
 #
 
 wizard_standard_install()
 {
 
-
     SELECTED_MODULES=()
 
 
-    while read -r module; do
-
+    while read -r module
+    do
 
         [[ -z "${module}" ]] && continue
-
 
         SELECTED_MODULES+=("${module}")
 
@@ -129,19 +122,19 @@ wizard_standard_install()
 
 
     #
-    # В стандартной установке UPS включен.
+    # Стандартная конфигурация ИБП
     #
 
     INSTALL_UPS=true
+    UPS_PROFILE="default"
 
 
 
     #
-    # Ежедневный отчет включен.
+    # Ежедневный отчет
     #
 
     DAILY_REPORT_ENABLED=true
-
     DAILY_REPORT_TIME="09:00"
 
 
@@ -156,32 +149,24 @@ wizard_standard_install()
 wizard_validate_modules()
 {
 
-
     local valid_modules=()
-
 
     local module
 
 
-
-    for module in "${SELECTED_MODULES[@]}"; do
-
+    for module in "${SELECTED_MODULES[@]}"
+    do
 
         if registry_exists "${module}"; then
 
-
             valid_modules+=("${module}")
 
-
         else
-
 
             echo \
                 "Предупреждение: модуль '${module}' отсутствует и будет пропущен."
 
-
         fi
-
 
     done
 
@@ -193,16 +178,12 @@ wizard_validate_modules()
 
     if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
 
-
         echo \
-            "Предупреждение: модули не выбраны. Добавлен system."
-
+            "Предупреждение: модули отсутствуют. Добавлен system."
 
         SELECTED_MODULES=("system")
 
-
     fi
-
 
 }
 
@@ -214,7 +195,6 @@ wizard_validate_modules()
 
 run_install_wizard()
 {
-
 
     wizard_init_tty
 
@@ -237,11 +217,10 @@ run_install_wizard()
 
 
     #
-    # Настройка выбранного режима
+    # Подготовка параметров режима
     #
 
-    case "${INSTALL_MODE}" in
-
+    case "${INSTALL_MODE:-standard}" in
 
 
         standard)
@@ -249,9 +228,7 @@ run_install_wizard()
 
             wizard_standard_install
 
-
             ;;
-
 
 
         custom)
@@ -259,20 +236,17 @@ run_install_wizard()
 
             screen_modules
 
-
             ;;
-
 
 
         *)
 
-
             echo \
-                "Неизвестный режим установки. Используется стандартный."
+                "Неизвестный режим. Используется стандартная установка."
 
+            INSTALL_MODE="standard"
 
             wizard_standard_install
-
 
             ;;
 
@@ -290,7 +264,13 @@ run_install_wizard()
 
 
     #
-    # Уведомления
+    # Настройка уведомлений
+    #
+    # В стандартном режиме:
+    #   только запросить Telegram/Email.
+    #
+    # В пользовательском:
+    #   полный выбор.
     #
 
     screen_notifications
@@ -300,9 +280,7 @@ run_install_wizard()
     if [[ "${NOTIFICATION_METHOD:-none}" == "telegram" ]] || \
        [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
 
-
         screen_telegram
-
 
     fi
 
@@ -311,8 +289,20 @@ run_install_wizard()
     if [[ "${NOTIFICATION_METHOD:-none}" == "email" ]] || \
        [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
 
-
         screen_smtp
+
+    fi
+
+
+
+    #
+    # Дополнительные параметры
+    #
+
+    if [[ "${INSTALL_MODE}" == "custom" ]]; then
+
+
+        screen_ups
 
 
     fi
@@ -320,15 +310,7 @@ run_install_wizard()
 
 
     #
-    # Дополнительные настройки
-    #
-
-    screen_ups
-
-
-
-    #
-    # Итог
+    # Итоговый экран
     #
 
     screen_summary
@@ -336,18 +318,22 @@ run_install_wizard()
 
 
     #
-    # Экспорт параметров установки
+    # Экспорт параметров
     #
 
     export INSTALL_MODE
+
     export NOTIFICATION_METHOD
+
 
 
     export TG_BOT_TOKEN
     export TG_CHAT_ID
 
 
+
     export EMAIL_ENABLED
+
     export SMTP_PROFILE
     export SMTP_SERVER
     export SMTP_PORT
@@ -358,8 +344,10 @@ run_install_wizard()
     export ALERT_EMAIL
 
 
+
     export INSTALL_UPS
     export UPS_PROFILE
+
 
 
     export DAILY_REPORT_ENABLED
@@ -367,13 +355,8 @@ run_install_wizard()
 
 
 
-    #
-    # Передача выбранных модулей дальше
-    #
-
     export SELECTED_MODULES
 
     export SELECTED_MODULES_STR="${SELECTED_MODULES[*]}"
-
 
 }
