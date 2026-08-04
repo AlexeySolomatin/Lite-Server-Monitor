@@ -82,7 +82,7 @@ screen_notifications()
             do
 
                 read -rp \
-                    "$(echo -e "${CLR_BOLD}Выберите вариант [1-3]${CLR_RESET} [${CLR_YELLOW}1${CLR_RESET}]: ")" \
+                    "${CLR_BOLD}Выберите вариант [1-3]${CLR_RESET} [${CLR_YELLOW}1${CLR_RESET}]: " \
                     answer
 
 
