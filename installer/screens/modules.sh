@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# ==============================================================================
+#
+# -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
 # Экран выбора модулей установки
 # Путь: installer/screens/modules.sh
-# ==============================================================================
-
+#
+# Назначение:
+#   Используется только в режиме "Настраиваемая установка".
+#
+#   Пользователь выбирает, какие модули мониторинга установить.
+# -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
 
@@ -17,12 +22,19 @@ set -Eeuo pipefail
 screen_modules()
 {
 
+
     wizard_header
 
 
-    echo -e "${CLR_BOLD}Выбор модулей мониторинга:${CLR_RESET}"
 
-    echo "Выберите компоненты, которые необходимо установить."
+    echo -e \
+        "${CLR_BOLD}Выбор модулей мониторинга:${CLR_RESET}"
+
+
+    echo \
+        "Выберите компоненты, которые необходимо установить."
+
+
     echo
 
 
@@ -32,14 +44,18 @@ screen_modules()
 
 
     #
-    # Проверка registry
+    # Проверка доступности registry
     #
 
     if ! declare -f registry_list >/dev/null 2>&1; then
 
-        echo -e "${CLR_RED}Ошибка: registry модулей недоступен.${CLR_RESET}"
+
+        echo -e \
+            "${CLR_RED}Ошибка: реестр модулей недоступен.${CLR_RESET}"
+
 
         return 1
+
 
     fi
 
@@ -52,19 +68,27 @@ screen_modules()
     local modules=()
 
 
-    while read -r module
-    do
+    local module
+
+
+
+    while read -r module; do
+
 
         [[ -z "${module}" ]] && continue
 
 
+
         #
-        # core не показываем пользователю
+        # Системный модуль core устанавливается автоматически
         #
 
         if [[ "${module}" == "core" ]]; then
+
             continue
+
         fi
+
 
 
         modules+=("${module}")
@@ -75,40 +99,28 @@ screen_modules()
 
 
     #
-    # Отображение выбора
+    # Выбор каждого модуля
     #
 
-    for module in "${modules[@]}"
-    do
+    for module in "${modules[@]}"; do
+
 
 
         local title
         local description
-        local default
-
-
-        title="${LSM_MODULE_TITLE[$module]:-${module}}"
-
-        description="${LSM_MODULE_DESCRIPTION[$module]:-}"
-
-        default="${LSM_MODULE_DEFAULT[$module]:-no}"
 
 
 
-        local answer="n"
+        title="${LSM_MODULE_NAME[$module]:-${module}}"
 
 
-        if [[ "${default}" == "yes" ]]; then
-
-            answer="y"
-
-        fi
+        description="${LSM_MODULE_DESCRIPTION[$module]:-Нет описания}"
 
 
 
         if wizard_yes_no \
             "${title}: ${description}" \
-            "${answer}"; then
+            "y"; then
 
 
             SELECTED_MODULES+=("${module}")
@@ -122,7 +134,7 @@ screen_modules()
 
 
     #
-    # Минимальная проверка
+    # Если ничего не выбрано
     #
 
     if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
@@ -130,16 +142,18 @@ screen_modules()
 
         echo
 
+
         echo -e \
-        "${CLR_YELLOW}Не выбран ни один модуль.${CLR_RESET}"
+            "${CLR_YELLOW}Не выбран ни один модуль.${CLR_RESET}"
+
 
 
         if wizard_yes_no \
-            "Добавить базовый системный мониторинг?" \
+            "Добавить системный мониторинг?" \
             "y"; then
 
 
-            SELECTED_MODULES+=("system")
+            SELECTED_MODULES=("system")
 
 
         fi
@@ -150,12 +164,15 @@ screen_modules()
 
 
     #
-    # Вывод результата
+    # Итог выбора
     #
 
     echo
 
-    echo -e "${CLR_BOLD}Выбраны модули:${CLR_RESET}"
+
+    echo -e \
+        "${CLR_BOLD}Выбранные модули:${CLR_RESET}"
+
 
 
     if [[ ${#SELECTED_MODULES[@]} -gt 0 ]]; then
@@ -173,6 +190,8 @@ screen_modules()
     fi
 
 
+
     wizard_pause
+
 
 }
