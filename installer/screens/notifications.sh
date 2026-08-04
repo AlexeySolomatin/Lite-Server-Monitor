@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
 # Экран настройки уведомлений
-# Путь: installer/screens/notifications.sh
+#
+# Путь:
+#   installer/screens/notifications.sh
 #
 # Назначение:
-#   Настройка способов отправки уведомлений LSM.
+#   Настройка каналов отправки уведомлений LSM.
 #
-#   В стандартном режиме:
-#       пользователь только выбирает:
-#       - настроить сейчас;
-#       - настроить позже.
+# Режимы:
 #
-#   В пользовательском режиме:
-#       доступен выбор Telegram / Email.
-# -----------------------------------------------------------------------------
+#   standard:
+#       - без выбора каналов;
+#       - предложение настроить уведомления сейчас или позже.
+#
+#   custom:
+#       - выбор Telegram / Email / Telegram + Email / без уведомлений.
+# ==============================================================================
 
 set -Eeuo pipefail
 
@@ -37,7 +38,6 @@ NOTIFICATION_METHOD="none"
 screen_notifications()
 {
 
-
     wizard_header
 
 
@@ -49,88 +49,112 @@ screen_notifications()
     if [[ "${INSTALL_MODE:-standard}" == "standard" ]]; then
 
 
-        echo -e \
-            "${CLR_BOLD}Настройка уведомлений:${CLR_RESET}"
-
+        echo -e "${CLR_BOLD}Настройка уведомлений:${CLR_RESET}"
 
         echo
 
-        echo "Настроить уведомления сейчас?"
-
-        echo
-
-        echo -e \
-            "  ${CLR_CYAN}1)${CLR_RESET} Настроить сейчас"
-
-
-        echo -e \
-            "  ${CLR_CYAN}2)${CLR_RESET} Настроить позже"
-
+        echo "Уведомления можно настроить сейчас или пропустить."
 
         echo
 
 
 
-        while true; do
+        if wizard_yes_no \
+            "Настроить уведомления сейчас?" \
+            "y"; then
 
 
-            read -rp \
-                "$(echo -e "${CLR_BOLD}Выберите вариант [1-2]${CLR_RESET} [${CLR_YELLOW}1${CLR_RESET}]: ")" \
-                answer
+            echo
+
+            echo -e "${CLR_CYAN}Выберите основной канал уведомлений:${CLR_RESET}"
+
+            echo
+
+            echo -e "  ${CLR_CYAN}1)${CLR_RESET} Telegram"
+            echo -e "  ${CLR_CYAN}2)${CLR_RESET} Email"
+            echo -e "  ${CLR_CYAN}3)${CLR_RESET} Telegram + Email"
+
+            echo
 
 
 
-            answer="${answer:-1}"
+            while true
+            do
+
+                read -rp \
+                    "$(echo -e "${CLR_BOLD}Выберите вариант [1-3]${CLR_RESET} [${CLR_YELLOW}1${CLR_RESET}]: ")" \
+                    answer
+
+
+                answer="${answer:-1}"
 
 
 
-            case "${answer}" in
+                case "${answer}" in
 
 
-                1)
+                    1)
+
+                        NOTIFICATION_METHOD="telegram"
+
+                        break
+
+                        ;;
 
 
-                    NOTIFICATION_METHOD="telegram"
+                    2)
 
-                    break
+                        NOTIFICATION_METHOD="email"
 
-                    ;;
+                        break
 
-
-                2)
-
-
-                    NOTIFICATION_METHOD="none"
-
-                    echo
-
-                    echo -e \
-                        "${CLR_YELLOW}Настройку можно выполнить позже.${CLR_RESET}"
+                        ;;
 
 
-                    echo -e \
-                        "Файл секретов: ${CLR_CYAN}/etc/lsm/secrets.conf${CLR_RESET}"
+                    3)
+
+                        NOTIFICATION_METHOD="both"
+
+                        break
+
+                        ;;
 
 
-                    break
+                    *)
 
-                    ;;
+                        echo -e \
+                            "${CLR_RED}Введите число от 1 до 3.${CLR_RESET}"
 
-
-                *)
-
-
-                    echo -e \
-                        "${CLR_RED}Введите 1 или 2.${CLR_RESET}"
+                        ;;
 
 
-                    ;;
+                esac
 
 
-            esac
+            done
 
 
-        done
+        else
+
+
+            NOTIFICATION_METHOD="none"
+
+
+            echo
+
+            echo -e \
+                "${CLR_YELLOW}Настройка уведомлений пропущена.${CLR_RESET}"
+
+
+            echo -e \
+                "Позже параметры можно добавить в файл секретов:"
+
+
+            echo -e \
+                "${CLR_CYAN}/etc/lsm/secrets.conf${CLR_RESET}"
+
+
+        fi
 
 
 
@@ -145,42 +169,35 @@ screen_notifications()
     # Пользовательская установка
     #
 
-    echo -e \
-        "${CLR_BOLD}Выбор способа отправки уведомлений:${CLR_RESET}"
-
-
-    echo "Укажите, куда система будет отправлять алерты и отчеты."
+    echo -e "${CLR_BOLD}Выбор способа отправки уведомлений:${CLR_RESET}"
 
     echo
 
-
-    echo -e \
-        "  ${CLR_CYAN}1)${CLR_RESET} Без уведомлений"
-
-
-    echo -e \
-        "  ${CLR_CYAN}2)${CLR_RESET} Telegram-бот ${CLR_YELLOW}(рекомендуется)${CLR_RESET}"
-
-
-    echo -e \
-        "  ${CLR_CYAN}3)${CLR_RESET} Email (SMTP)"
-
-
-    echo -e \
-        "  ${CLR_CYAN}4)${CLR_RESET} Telegram + Email"
-
+    echo "Укажите, куда LSM будет отправлять алерты и отчеты."
 
     echo
 
 
 
-    while true; do
+    echo -e "  ${CLR_CYAN}1)${CLR_RESET} Без уведомлений"
+
+    echo -e "  ${CLR_CYAN}2)${CLR_RESET} Telegram-бот ${CLR_YELLOW}(рекомендуется)${CLR_RESET}"
+
+    echo -e "  ${CLR_CYAN}3)${CLR_RESET} Email (SMTP)"
+
+    echo -e "  ${CLR_CYAN}4)${CLR_RESET} Telegram + Email"
+
+    echo
+
+
+
+    while true
+    do
 
 
         read -rp \
             "$(echo -e "${CLR_BOLD}Выберите вариант [1-4]${CLR_RESET} [${CLR_YELLOW}2${CLR_RESET}]: ")" \
             answer
-
 
 
         answer="${answer:-2}"
@@ -192,7 +209,6 @@ screen_notifications()
 
             1)
 
-
                 NOTIFICATION_METHOD="none"
 
                 break
@@ -201,7 +217,6 @@ screen_notifications()
 
 
             2)
-
 
                 NOTIFICATION_METHOD="telegram"
 
@@ -212,7 +227,6 @@ screen_notifications()
 
             3)
 
-
                 NOTIFICATION_METHOD="email"
 
                 break
@@ -221,7 +235,6 @@ screen_notifications()
 
 
             4)
-
 
                 NOTIFICATION_METHOD="both"
 
@@ -232,10 +245,8 @@ screen_notifications()
 
             *)
 
-
                 echo -e \
                     "${CLR_RED}Введите число от 1 до 4.${CLR_RESET}"
-
 
                 ;;
 
