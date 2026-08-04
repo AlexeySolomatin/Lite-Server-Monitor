@@ -12,7 +12,7 @@ readonly REPOSITORY_URL="https://github.com/AlexeySolomatin/Lite-Server-Monitor.
 readonly ARCHIVE_URL="https://github.com/AlexeySolomatin/Lite-Server-Monitor/archive/refs/heads/main.tar.gz"
 
 
-TEMP_DIR="$(mktemp -d)"
+TEMP_DIR="$(mktemp -d /tmp/lsm-bootstrap.XXXXXX)"
 readonly TEMP_DIR
 
 readonly SOURCE_DIR="${TEMP_DIR}/Lite-Server-Monitor"
@@ -94,7 +94,7 @@ cleanup()
 }
 
 
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 
 
@@ -120,6 +120,34 @@ fi
 
 
 #
+# Dependency check
+#
+
+if ! command -v git >/dev/null 2>&1 &&
+   ! command -v curl >/dev/null 2>&1
+then
+
+    bootstrap_log_error \
+        "Не найден git или curl."
+
+    exit 1
+
+fi
+
+
+
+if ! command -v tar >/dev/null 2>&1; then
+
+    bootstrap_log_error \
+        "Не найден tar."
+
+    exit 1
+
+fi
+
+
+
+#
 # Download sources
 #
 
@@ -131,11 +159,18 @@ bootstrap_log_info \
 if command -v git >/dev/null 2>&1; then
 
 
-    git clone \
+    if ! git clone \
         --depth 1 \
         "${REPOSITORY_URL}" \
-        "${SOURCE_DIR}" \
-        >/dev/null 2>&1
+        "${SOURCE_DIR}"
+    then
+
+        bootstrap_log_error \
+            "Не удалось загрузить репозиторий Lite Server Monitor."
+
+        exit 1
+
+    fi
 
 
 
@@ -145,21 +180,34 @@ elif command -v curl >/dev/null 2>&1; then
     mkdir -p "${SOURCE_DIR}"
 
 
-    curl -fsSL "${ARCHIVE_URL}" \
+    if ! curl -fsSL "${ARCHIVE_URL}" \
         | tar -xz \
             -C "${SOURCE_DIR}" \
             --strip-components=1
+    then
+
+        bootstrap_log_error \
+            "Не удалось загрузить архив Lite Server Monitor."
+
+        exit 1
+
+    fi
+
+
+fi
 
 
 
-else
+#
+# Validate source
+#
 
+if [[ ! -f "${SOURCE_DIR}/installer/install.sh" ]]; then
 
     bootstrap_log_error \
-        "Не найден git или curl."
+        "Повреждён пакет LSM: installer/install.sh отсутствует."
 
     exit 1
-
 
 fi
 
@@ -174,31 +222,21 @@ bootstrap_log_info \
 
 
 
-chmod -R +x "${SOURCE_DIR}"
-
-
-
-#
-# Delay
-#
-
-bootstrap_log_info \
-    "Исходные файлы успешно загружены."
-
-
-
-bootstrap_log_info \
-    "Запуск основного мастера установки через 3 секунды..."
-
-
-
-sleep 3
+find "${SOURCE_DIR}" \
+    -type f \
+    -name "*.sh" \
+    -exec chmod +x {} \;
 
 
 
 #
 # Start installer
 #
+
+bootstrap_log_info \
+    "Исходные файлы успешно загружены."
+
+
 
 printf "\n"
 
