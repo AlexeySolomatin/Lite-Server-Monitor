@@ -3,13 +3,27 @@
 # Lite Server Monitor (LSM)
 # Мастер интерактивной установки
 # Путь: installer/wizard.sh
+#
+# Назначение:
+#   Управляет последовательностью экранов установки:
+#
+#   standard:
+#       - установка всех модулей;
+#       - установка стандартных конфигураций;
+#       - настройка только уведомлений.
+#
+#   custom:
+#       - выбор модулей;
+#       - настройка дополнительных параметров.
 # ==============================================================================
+
 
 set -Eeuo pipefail
 
 
+
 #
-# Определение корня проекта
+# Корень проекта
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -17,45 +31,63 @@ LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 readonly LSM_SCREENS_DIR="${LSM_ROOT}/installer/screens"
 
 
+
 #
 # Загрузка экранов мастера
 #
 
-load_screen() {
+load_screen()
+{
 
     local screen="${1}"
 
+
     if [[ -f "${screen}" ]]; then
+
+
         # shellcheck source=/dev/null
         source "${screen}"
+
+
     else
-        echo "Ошибка: отсутствует экран мастера ${screen}" >&2
+
+
+        echo "Ошибка: отсутствует экран установки ${screen}" >&2
+
         exit 1
+
+
     fi
 
 }
 
 
+
 #
-# Загрузка registry
+# Загрузка реестра модулей
 #
 
 if [[ -f "${LSM_ROOT}/lib/installer/registry.sh" ]]; then
 
+
     # shellcheck source=/dev/null
     source "${LSM_ROOT}/lib/installer/registry.sh"
 
+
 else
 
+
     echo "Ошибка: отсутствует registry.sh" >&2
+
     exit 1
+
 
 fi
 
 
 
 #
-# Загрузка UI экранов
+# Загрузка экранов мастера
 #
 
 load_screen "${LSM_SCREENS_DIR}/common.sh"
@@ -71,18 +103,47 @@ load_screen "${LSM_SCREENS_DIR}/summary.sh"
 
 
 #
-# Стандартный набор установки
+# Стандартная установка
+#
+# Используются все зарегистрированные модули.
 #
 
-wizard_default_modules() {
+wizard_standard_install()
+{
 
-    SELECTED_MODULES=(
-        "system"
-        "disk"
-        "smart"
-        "temperature"
-        "login"
-    )
+
+    SELECTED_MODULES=()
+
+
+    while read -r module; do
+
+
+        [[ -z "${module}" ]] && continue
+
+
+        SELECTED_MODULES+=("${module}")
+
+
+    done < <(registry_list)
+
+
+
+    #
+    # В стандартной установке UPS включен.
+    #
+
+    INSTALL_UPS=true
+
+
+
+    #
+    # Ежедневный отчет включен.
+    #
+
+    DAILY_REPORT_ENABLED=true
+
+    DAILY_REPORT_TIME="09:00"
+
 
 }
 
@@ -92,79 +153,137 @@ wizard_default_modules() {
 # Проверка выбранных модулей
 #
 
-wizard_validate_modules() {
+wizard_validate_modules()
+{
 
 
     local valid_modules=()
 
+
+    local module
+
+
+
     for module in "${SELECTED_MODULES[@]}"; do
+
 
         if registry_exists "${module}"; then
 
+
             valid_modules+=("${module}")
+
 
         else
 
-            wizard_log_warning \
-                "Модуль '${module}' отсутствует в registry и будет пропущен."
+
+            echo \
+                "Предупреждение: модуль '${module}' отсутствует и будет пропущен."
+
 
         fi
 
+
     done
+
 
 
     SELECTED_MODULES=("${valid_modules[@]}")
 
 
+
     if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
 
-        wizard_log_warning \
-            "Не выбран ни один модуль. Добавлен системный мониторинг."
+
+        echo \
+            "Предупреждение: модули не выбраны. Добавлен system."
+
 
         SELECTED_MODULES=("system")
 
+
     fi
+
 
 }
 
 
 
 #
-# Основной мастер установки
+# Основной запуск мастера
 #
 
-run_install_wizard() {
+run_install_wizard()
+{
 
 
     wizard_init_tty
 
 
+
+    #
+    # Приветствие
+    #
+
     screen_welcome
 
+
+
+    #
+    # Выбор режима
+    #
 
     screen_install_mode
 
 
 
     #
-    # Быстрая установка
+    # Настройка выбранного режима
     #
 
-    if [[ "${INSTALL_MODE:-preset}" == "preset" ]]; then
+    case "${INSTALL_MODE}" in
 
 
-        wizard_default_modules
+
+        standard)
 
 
-    else
+            wizard_standard_install
 
 
-        screen_modules
+            ;;
 
 
-    fi
+
+        custom)
 
 
+            screen_modules
+
+
+            ;;
+
+
+
+        *)
+
+
+            echo \
+                "Неизвестный режим установки. Используется стандартный."
+
+
+            wizard_standard_install
+
+
+            ;;
+
+
+    esac
+
+
+
+    #
+    # Проверка модулей
+    #
 
     wizard_validate_modules
 
@@ -181,7 +300,9 @@ run_install_wizard() {
     if [[ "${NOTIFICATION_METHOD:-none}" == "telegram" ]] || \
        [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
 
+
         screen_telegram
+
 
     fi
 
@@ -190,14 +311,16 @@ run_install_wizard() {
     if [[ "${NOTIFICATION_METHOD:-none}" == "email" ]] || \
        [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
 
+
         screen_smtp
+
 
     fi
 
 
 
     #
-    # UPS
+    # Дополнительные настройки
     #
 
     screen_ups
@@ -213,7 +336,7 @@ run_install_wizard() {
 
 
     #
-    # Экспорт параметров
+    # Экспорт параметров установки
     #
 
     export INSTALL_MODE
@@ -239,9 +362,13 @@ run_install_wizard() {
     export UPS_PROFILE
 
 
+    export DAILY_REPORT_ENABLED
+    export DAILY_REPORT_TIME
+
+
 
     #
-    # Модули
+    # Передача выбранных модулей дальше
     #
 
     export SELECTED_MODULES
