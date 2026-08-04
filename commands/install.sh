@@ -18,6 +18,16 @@ fi
 export LSM_ROOT
 
 
-exec bash \
-    "${LSM_ROOT}/installer/install.sh" \
-    "$@"
+INSTALLER="${LSM_ROOT}/installer/install.sh"
+
+
+if [[ ! -f "${INSTALLER}" ]]; then
+
+    printf "ERROR: installer not found: %s\n" "${INSTALLER}" >&2
+
+    exit 1
+
+fi
+
+
+exec bash "${INSTALLER}" "$@"
