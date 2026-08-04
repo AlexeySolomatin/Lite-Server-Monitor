@@ -1,21 +1,38 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Step 04: Configuration Deployment
-# -----------------------------------------------------------------------------
+# Этап 04: Развертывание конфигурации
+# Путь: installer/steps/04_configuration.sh
+#
+# Назначение:
+#   Создает основные конфигурационные файлы LSM:
+#
+#   /etc/lsm/config.conf
+#       Основные параметры системы.
+#
+#   /etc/lsm/secrets.conf
+#       Секретные данные Telegram и SMTP.
+#
+#   Конфигурация создается независимо от выбранного режима установки.
+# ==============================================================================
+
 
 set -Eeuo pipefail
+
 
 
 readonly CONFIG_COMPONENT="CONFIGURATION"
 
 
 
+#
+# Основной этап настройки
+#
+
 step_configuration()
 {
 
-    print_section "Configuration Deployment"
+    print_section "Развертывание конфигурации"
 
 
 
@@ -23,147 +40,164 @@ step_configuration()
 
     local config_file="${config_dir}/config.conf"
 
+    local secrets_file="${config_dir}/secrets.conf"
+
+
+
     local template_source="${LSM_ROOT:-/opt/lsm}/templates/config.conf"
 
 
 
     log_info "${CONFIG_COMPONENT}" \
-        "Развертывание конфигурации LSM."
+        "Создание конфигурации LSM."
 
 
 
     #
-    # Создание каталога конфигурации
+    # Каталог конфигурации
     #
 
-    if declare -f deploy_create_directory >/dev/null 2>&1; then
+    mkdir -p "${config_dir}"
 
+    chmod 750 "${config_dir}"
 
-        deploy_create_directory \
-            "${config_dir}" \
-            "750" \
-            "root" \
-            "root"
-
-
-    else
-
-
-        mkdir -p "${config_dir}"
-
-        chmod 750 "${config_dir}"
-
-        chown root:root "${config_dir}"
-
-
-    fi
+    chown root:root "${config_dir}"
 
 
 
     #
-    # Проверка шаблона
+    # Основной конфиг
     #
 
-    if [[ ! -f "${template_source}" ]]; then
-
-
-        log_error "${CONFIG_COMPONENT}" \
-            "Шаблон конфигурации отсутствует: ${template_source}"
-
-
-        return 1
-
-    fi
-
-
-
-    #
-    # Резервная копия существующего конфига
-    #
-
-    if [[ -f "${config_file}" ]]; then
-
-
-        local backup_file
-
-        backup_file="${config_file}.bak.$(date +%Y%m%d_%H%M%S)"
-
-
-
-        log_warn "${CONFIG_COMPONENT}" \
-            "Обнаружен существующий конфиг. Создание резервной копии: ${backup_file}"
-
-
-
-        cp -a \
-            "${config_file}" \
-            "${backup_file}"
-
-
-        chmod 600 "${backup_file}"
-        chown root:root "${backup_file}"
-
-
-    fi
-
-
-
-    #
-    # Установка базового конфига
-    #
-
-    if declare -f deploy_install_file >/dev/null 2>&1; then
-
-
-        deploy_install_file \
-            "${template_source}" \
-            "${config_file}" \
-            "600" \
-            "root" \
-            "root"
-
-
-    else
+    if [[ -f "${template_source}" ]]; then
 
 
         cp "${template_source}" "${config_file}"
 
-        chmod 600 "${config_file}"
 
-        chown root:root "${config_file}"
+    else
+
+
+        touch "${config_file}"
 
 
     fi
 
 
 
+    chmod 600 "${config_file}"
+
+    chown root:root "${config_file}"
+
+
+
     #
-    # Замена параметров
+    # Секретный файл
+    #
+
+    if [[ ! -f "${secrets_file}" ]]; then
+
+
+        cat > "${secrets_file}" <<EOF
+# ==============================================================================
+# Lite Server Monitor (LSM)
+# Секреты уведомлений
+#
+# Заполняется вручную или мастером установки.
+# ==============================================================================
+
+
+TG_BOT_TOKEN=""
+
+TG_CHAT_ID=""
+
+
+SMTP_USER=""
+
+SMTP_PASS=""
+
+SMTP_FROM=""
+
+
+EOF
+
+
+    fi
+
+
+
+    chmod 600 "${secrets_file}"
+
+    chown root:root "${secrets_file}"
+
+
+
+    #
+    # Установка параметров
     #
 
     config_set()
     {
+
         local key="$1"
         local value="$2"
 
 
-        sed -i \
-            "s|^${key}=.*|${key}=\"${value}\"|" \
-            "${config_file}"
+
+        if grep -q "^${key}=" "${config_file}" 2>/dev/null; then
+
+
+            sed -i \
+                "s|^${key}=.*|${key}=\"${value}\"|" \
+                "${config_file}"
+
+
+        else
+
+
+            echo "${key}=\"${value}\"" >> "${config_file}"
+
+
+        fi
+
     }
 
 
 
-    log_info "${CONFIG_COMPONENT}" \
-        "Применение параметров установки."
+    secret_set()
+    {
+
+        local key="$1"
+        local value="$2"
+
+
+
+        if grep -q "^${key}=" "${secrets_file}" 2>/dev/null; then
+
+
+            sed -i \
+                "s|^${key}=.*|${key}=\"${value}\"|" \
+                "${secrets_file}"
+
+
+        else
+
+
+            echo "${key}=\"${value}\"" >> "${secrets_file}"
+
+
+        fi
+
+    }
 
 
 
     #
-    # Notification mode
+    # Каналы уведомлений
     #
 
     case "${NOTIFICATION_METHOD:-none}" in
+
 
         telegram)
 
@@ -201,20 +235,20 @@ step_configuration()
 
 
     #
-    # Telegram
+    # Telegram секреты
     #
 
     [[ -n "${TG_BOT_TOKEN:-}" ]] &&
-        config_set TELEGRAM_BOT_TOKEN "${TG_BOT_TOKEN}"
+        secret_set TG_BOT_TOKEN "${TG_BOT_TOKEN}"
 
 
     [[ -n "${TG_CHAT_ID:-}" ]] &&
-        config_set TELEGRAM_CHAT_ID "${TG_CHAT_ID}"
+        secret_set TG_CHAT_ID "${TG_CHAT_ID}"
 
 
 
     #
-    # SMTP
+    # SMTP параметры
     #
 
     [[ -n "${SMTP_SERVER:-}" ]] &&
@@ -229,34 +263,58 @@ step_configuration()
         config_set SMTP_TLS "${SMTP_TLS}"
 
 
-    [[ -n "${SMTP_USERNAME:-}" ]] &&
-        config_set SMTP_USER "${SMTP_USERNAME}"
+    [[ -n "${SMTP_USER:-}" ]] &&
+        secret_set SMTP_USER "${SMTP_USER}"
 
 
-    [[ -n "${SMTP_PASSWORD:-}" ]] &&
-        config_set SMTP_PASS "${SMTP_PASSWORD}"
+    [[ -n "${SMTP_PASS:-}" ]] &&
+        secret_set SMTP_PASS "${SMTP_PASS}"
 
 
     [[ -n "${SMTP_FROM:-}" ]] &&
-        config_set SMTP_FROM "${SMTP_FROM}"
+        secret_set SMTP_FROM "${SMTP_FROM}"
 
 
 
     #
-    # Финальная защита
+    # UPS
+    #
+
+    config_set UPS_ENABLED "${INSTALL_UPS:-false}"
+
+    config_set UPS_PROFILE "${UPS_PROFILE:-}"
+
+
+
+    #
+    # Ежедневный отчет
+    #
+
+    config_set DAILY_REPORT_ENABLED \
+        "${DAILY_REPORT_ENABLED:-false}"
+
+
+    config_set DAILY_REPORT_TIME \
+        "${DAILY_REPORT_TIME:-09:00}"
+
+
+
+    #
+    # Защита файлов
     #
 
     chmod 600 "${config_file}"
+    chmod 600 "${secrets_file}"
 
-    chown root:root "${config_file}"
+    chown root:root \
+        "${config_file}" \
+        "${secrets_file}"
 
 
 
     log_success "${CONFIG_COMPONENT}" \
-        "Конфигурация LSM успешно установлена."
+        "Конфигурация LSM установлена."
 
-
-    return 0
 
 }
 
@@ -277,7 +335,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
     source "${LSM_ROOT}/lib/core/common.sh"
     source "${LSM_ROOT}/lib/core/logging.sh"
-    source "${LSM_ROOT}/lib/installer/deploy.sh"
 
 
 
