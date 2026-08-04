@@ -36,12 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../lib/core/ui.sh"
 
 # ANSI Цвета для Common (локально, если нужно что-то дополнительно)
-CLR_RESET="\e[0m"
-CLR_BOLD="\e[1m"
-CLR_CYAN="\e[36m"
-CLR_GREEN="\e[32m"
-CLR_YELLOW="\e[33m"
-CLR_RED="\e[31m"
+
 
 # Синхронизируем цвета с ui.sh: если там цвета уже отключены — отключаем и здесь
 if [[ -z "${COLOR_RESET:-}" ]]; then
