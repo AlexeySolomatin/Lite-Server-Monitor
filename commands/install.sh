@@ -7,5 +7,17 @@
 
 set -Eeuo pipefail
 
-LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
-exec bash "${LSM_ROOT}/installer/install.sh" "$@"
+
+if [[ -z "${LSM_ROOT:-}" ]]; then
+
+    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+fi
+
+
+export LSM_ROOT
+
+
+exec bash \
+    "${LSM_ROOT}/installer/install.sh" \
+    "$@"
