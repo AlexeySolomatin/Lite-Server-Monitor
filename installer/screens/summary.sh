@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
 # Экран итоговой проверки установки
 # Путь: installer/screens/summary.sh
 #
 # Назначение:
-#   Показывает пользователю все выбранные параметры перед установкой:
+#   Показывает итоговые параметры перед запуском установки:
+#
 #   - режим установки;
 #   - уведомления;
 #   - UPS;
-#   - ежедневные отчеты;
+#   - ежедневный отчет;
 #   - выбранные модули.
-# -----------------------------------------------------------------------------
+# ==============================================================================
+
 
 set -Eeuo pipefail
 
 
 
 #
-# Экран итоговой информации
+# Итоговая информация перед установкой
 #
 
 screen_summary()
@@ -31,7 +32,7 @@ screen_summary()
 
     echo -e "${CLR_BOLD}Сводная информация перед установкой:${CLR_RESET}"
 
-    echo "Проверьте выбранные параметры перед запуском установки."
+    echo "Проверьте выбранные параметры перед началом установки."
 
     echo
 
@@ -46,7 +47,7 @@ screen_summary()
 
 
     echo -e \
-        "  ${CLR_CYAN}Канал уведомлений:${CLR_RESET}    ${NOTIFICATION_METHOD:-none}"
+        "  ${CLR_CYAN}Уведомления:${CLR_RESET}          ${NOTIFICATION_METHOD:-none}"
 
 
 
@@ -58,8 +59,21 @@ screen_summary()
        [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
 
 
-        echo -e \
-            "  ${CLR_CYAN}Telegram Chat ID:${CLR_RESET}     ${TG_CHAT_ID:-не указан}"
+        if [[ -n "${TG_CHAT_ID:-}" ]]; then
+
+
+            echo -e \
+                "  ${CLR_CYAN}Telegram Chat ID:${CLR_RESET}     ${TG_CHAT_ID}"
+
+
+        else
+
+
+            echo -e \
+                "  ${CLR_CYAN}Telegram:${CLR_RESET}             настройка позже"
+
+
+        fi
 
 
     fi
@@ -74,12 +88,25 @@ screen_summary()
        [[ "${NOTIFICATION_METHOD:-none}" == "both" ]]; then
 
 
-        echo -e \
-            "  ${CLR_CYAN}SMTP профиль:${CLR_RESET}         ${SMTP_PROFILE:-custom}"
+        if [[ -n "${SMTP_USER:-}" ]]; then
 
 
-        echo -e \
-            "  ${CLR_CYAN}Получатель Email:${CLR_RESET}     ${ALERT_EMAIL:-не указан}"
+            echo -e \
+                "  ${CLR_CYAN}SMTP профиль:${CLR_RESET}         ${SMTP_PROFILE:-manual}"
+
+
+            echo -e \
+                "  ${CLR_CYAN}Email получателя:${CLR_RESET}     ${ALERT_EMAIL:-не указан}"
+
+
+        else
+
+
+            echo -e \
+                "  ${CLR_CYAN}Email:${CLR_RESET}               настройка позже"
+
+
+        fi
 
 
     fi
@@ -94,14 +121,14 @@ screen_summary()
 
 
         echo -e \
-            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       Включен"
+            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       включен (${UPS_PROFILE:-default})"
 
 
     else
 
 
         echo -e \
-            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       Отключен"
+            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       отключен"
 
 
     fi
@@ -116,14 +143,14 @@ screen_summary()
 
 
         echo -e \
-            "  ${CLR_CYAN}Ежедневный отчет:${CLR_RESET}     Включен (${DAILY_REPORT_TIME:-09:00})"
+            "  ${CLR_CYAN}Ежедневный отчет:${CLR_RESET}     включен (${DAILY_REPORT_TIME:-09:00})"
 
 
     else
 
 
         echo -e \
-            "  ${CLR_CYAN}Ежедневный отчет:${CLR_RESET}     Отключен"
+            "  ${CLR_CYAN}Ежедневный отчет:${CLR_RESET}     отключен"
 
 
     fi
@@ -135,13 +162,14 @@ screen_summary()
 
 
     #
-    # Выбранные модули
+    # Модули
     #
 
     echo -e "${CLR_BOLD}Устанавливаемые модули:${CLR_RESET}"
 
 
-    if [[ ${#SELECTED_MODULES[@]} -gt 0 ]]; then
+
+    if [[ ${#SELECTED_MODULES[@]:-0} -gt 0 ]]; then
 
 
         for module in "${SELECTED_MODULES[@]}"; do
@@ -170,11 +198,11 @@ screen_summary()
 
 
     #
-    # Подтверждение установки
+    # Подтверждение
     #
 
     if ! wizard_yes_no \
-        "Начать установку Lite Server Monitor с указанными параметрами?" \
+        "Начать установку Lite Server Monitor?" \
         "y"; then
 
 
