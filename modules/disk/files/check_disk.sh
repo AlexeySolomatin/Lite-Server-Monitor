@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
 # Disk Monitor
 #
@@ -8,79 +7,69 @@
 #   modules/disk/files/check_disk.sh
 #
 # Назначение:
-#   Контроль заполнения файловых систем.
+#   Проверка использования файловых систем.
 #
-# Поддерживаемый интерфейс:
+# Поддерживаемые режимы:
 #
 #   check_disk.sh status
 #       Краткий текущий статус.
 #
 #   check_disk.sh report
-#       Подробный отчет.
+#       Подробный отчет по файловым системам.
 #
 #   check_disk.sh check
 #       Машинная проверка состояния.
+#       В этом режиме также выполняются уведомления.
 #
-# Без аргумента:
-#   выполняется check для обратной совместимости.
+# ВАЖНО:
 #
-# -----------------------------------------------------------------------------
+#   Этот скрипт НЕ управляет notification state.
+#
+#   Состояние уведомлений:
+#
+#       /var/lib/lsm/state/disk.state
+#
+#   полностью принадлежит:
+#
+#       lib/notifications/notify.sh
+#
+#   check_disk.sh только передает результат:
+#
+#       notify "disk" "OK|WARNING|CRITICAL" "..."
+#
+# ==============================================================================
+
 
 set -Eeuo pipefail
 
 
+
 #
-# Сброс локали для стандартизации вывода df.
+# Стандартизация вывода df.
 #
 
 export LC_ALL=C
 export LANG=C
 
 
+
 #
-# Каталог скрипта.
+# Каталоги проекта
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-#
-# Корень проекта.
-#
-# /opt/lsm/modules/disk/files
-#       ↑
-# Поднимаемся на 3 уровня:
-#
-# files -> disk -> modules -> lsm
-#
-
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 
 #
-# Загрузка централизованных библиотек.
-#
-
-if [[ -f "${PROJECT_ROOT}/lib/core/logging.sh" ]]; then
-
-    # shellcheck source=/dev/null
-    source "${PROJECT_ROOT}/lib/core/logging.sh"
-
-fi
-
-
-#
-# Компонент логирования.
-#
-
-readonly DISK_COMPONENT="DISK"
-
-
-#
-# Конфигурация.
+# Конфигурация модуля
 #
 
 CONFIG_FILE="/etc/lsm/modules/disk.conf"
+
+
 
 if [[ -f "${CONFIG_FILE}" ]]; then
 
@@ -90,8 +79,9 @@ if [[ -f "${CONFIG_FILE}" ]]; then
 fi
 
 
+
 #
-# Значения по умолчанию.
+# Значения по умолчанию
 #
 
 WARNING="${WARNING:-80}"
@@ -105,189 +95,306 @@ NOTIFY_ON_ALERT="${NOTIFY_ON_ALERT:-true}"
 NOTIFY_ON_RECOVERY="${NOTIFY_ON_RECOVERY:-true}"
 
 
+
 #
-# Пути состояния.
+# Состояние / блокировка
+#
+# ВАЖНО:
+#
+# LOCK_FILE находится в каталоге state, но сам disk.state
+# здесь НЕ создается и НЕ изменяется.
 #
 
-STATE_DIR="${LSM_STATE_DIR:-/var/lib/lsm/state}"
-
-STATE_FILE="${STATE_DIR}/disk.state"
+STATE_DIR="${STATE_DIR:-/var/lib/lsm/state}"
 
 LOCK_FILE="${STATE_DIR}/disk_check.lock"
 
 
+
 #
-# Система уведомлений.
+# Система уведомлений
 #
 
 NOTIFY_SCRIPT="${PROJECT_ROOT}/lib/notifications/notify.sh"
 
 
+
 #
-# Результат проверки.
+# Режим работы
 #
 
-STATUS="OK"
+MODE="${1:-check}"
 
-ALERT_MESSAGES=()
 
 
 # ==============================================================================
 # Вспомогательные функции
 # ==============================================================================
 
-
 #
-# Проверка доступности df.
+# Вывод ошибки.
 #
 
-check_df_available()
+disk_error()
 {
+    printf 'ERROR: %s\n' "$*" >&2
+}
 
-    if command -v df >/dev/null 2>&1; then
 
-        return 0
+
+#
+# Вывод предупреждения.
+#
+
+disk_warn()
+{
+    printf 'WARNING: %s\n' "$*" >&2
+}
+
+
+
+#
+# Проверка числового значения.
+#
+
+disk_is_number()
+{
+    [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
+
+
+#
+# Проверка конфигурации.
+#
+
+disk_validate_config()
+{
+    if ! disk_is_number "${WARNING}" ||
+       ! disk_is_number "${CRITICAL}"; then
+
+        disk_error \
+            "WARNING и CRITICAL должны быть целыми числами."
+
+        return 1
 
     fi
 
 
-    printf '%s\n' \
-        "Утилита 'df' не найдена в системе." >&2
+
+    if (( WARNING < 0 || WARNING > 100 )); then
+
+        disk_error \
+            "WARNING должен находиться в диапазоне 0..100."
+
+        return 1
+
+    fi
 
 
-    return 1
 
+    if (( CRITICAL < 0 || CRITICAL > 100 )); then
+
+        disk_error \
+            "CRITICAL должен находиться в диапазоне 0..100."
+
+        return 1
+
+    fi
+
+
+
+    if (( WARNING >= CRITICAL )); then
+
+        disk_error \
+            "WARNING должен быть меньше CRITICAL."
+
+        return 1
+
+    fi
+
+
+
+    return 0
 }
 
 
 
 #
-# Запись state-файла.
-#
-# State существует только при проблемном состоянии.
+# Проверка наличия df.
 #
 
-write_alert_state()
+disk_require_df()
 {
+    if ! command -v df >/dev/null 2>&1; then
 
-    local message
+        disk_error \
+            "Утилита 'df' не найдена в системе."
 
-    mkdir -p "${STATE_DIR}"
+        return 1
+
+    fi
 
 
-    {
-        printf '%s\n' \
-            "status=${STATUS}"
 
-        printf '%s\n' \
-            "timestamp=%s" \
-            "$(date '+%Y-%m-%d %H:%M:%S')"
-
-        for message in "${ALERT_MESSAGES[@]}"
-        do
-
-            printf '%s\n' \
-                "${message}"
-
-        done
-
-    } > "${STATE_FILE}"
-
+    return 0
 }
 
 
 
 #
-# Удаление state-файла после восстановления.
+# Проверка наличия notify.sh.
 #
 
-clear_alert_state()
+disk_notify_available()
 {
-
-    rm -f "${STATE_FILE}" 2>/dev/null || true
-
+    [[ -f "${NOTIFY_SCRIPT}" ]]
 }
 
 
 
+# ==============================================================================
+# Сбор информации о файловых системах
+# ==============================================================================
+
 #
-# Выполнение проверки файловых систем.
+# Формат вывода:
+#
+#   mount_point|usage
+#
+# Например:
+#
+#   /|73
+#   /home|82
+#
+# Внутри функции не выполняются уведомления.
 #
 
-run_disk_check()
+disk_collect_filesystems()
 {
+    df -P 2>/dev/null |
+        awk \
+            -v ignore="${IGNORE_MOUNTS}" '
+        BEGIN {
+            n = split(ignore, ignored, " ")
+        }
+
+        NR == 1 {
+            next
+        }
+
+        {
+            filesystem = $1
+            usage = $5
+            mount_point = $6
+
+            #
+            # Некоторые реализации df могут переносить имя
+            # файловой системы. Такие строки здесь пропускаем.
+            #
+            if (usage !~ /^[0-9]+%$/) {
+                next
+            }
+
+            #
+            # Удаляем процент.
+            #
+            gsub(/%/, "", usage)
+
+            #
+            # Пропуск виртуальных / псевдо-ФС.
+            #
+            if (
+                filesystem ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|cgroup|cgroup2|pstore|bpf|debugfs|tracefs|securityfs|configfs|fusectl|mqueue|hugetlbfs|autofs|binfmt_misc|ramfs|overlay|squashfs|nsfs)/
+            ) {
+                next
+            }
+
+            #
+            # Пропуск loop / cdrom устройств.
+            #
+            if (
+                filesystem ~ /^\/dev\/loop/ ||
+                filesystem ~ /^\/dev\/sr/
+            ) {
+                next
+            }
+
+            #
+            # Проверка списка IGNORE_MOUNTS.
+            #
+            skip = 0
+
+            for (i = 1; i <= n; i++) {
+
+                if (ignored[i] == "") {
+                    continue
+                }
+
+                #
+                # Точное совпадение:
+                #
+                # /var
+                #
+                if (mount_point == ignored[i]) {
+                    skip = 1
+                    break
+                }
+
+                #
+                # Вложенный путь:
+                #
+                # /var/log
+                # при IGNORE_MOUNTS=/var
+                #
+                if (index(mount_point, ignored[i] "/") == 1) {
+                    skip = 1
+                    break
+                }
+            }
+
+            if (skip) {
+                next
+            }
+
+            printf "%s|%s\n", mount_point, usage
+        }'
+}
+
+
+
+# ==============================================================================
+# Определение общего состояния
+# ==============================================================================
+
+#
+# Результат:
+#
+#   OK
+#   WARNING
+#   CRITICAL
+#
+# ALERT_MESSAGES заполняется вызывающим кодом.
+#
+
+disk_evaluate()
+{
+    local mount_point
+    local usage
 
     STATUS="OK"
 
     ALERT_MESSAGES=()
 
 
-    #
-    # Проверяем df.
-    #
 
-    if ! check_df_available; then
-
-        STATUS="FAIL"
-
-        ALERT_MESSAGES+=(
-            "Утилита df недоступна."
-        )
-
-        return 1
-
-    fi
-
-
-    #
-    # Проверяем конфигурационные пороги.
-    #
-
-    if ! [[ "${WARNING}" =~ ^[0-9]+$ &&
-            "${CRITICAL}" =~ ^[0-9]+$ ]]; then
-
-        STATUS="FAIL"
-
-        ALERT_MESSAGES+=(
-            "Некорректные пороги WARNING=${WARNING}, CRITICAL=${CRITICAL}."
-        )
-
-        return 1
-
-    fi
-
-
-    if (( WARNING >= CRITICAL )); then
-
-        STATUS="FAIL"
-
-        ALERT_MESSAGES+=(
-            "Некорректная конфигурация: WARNING должен быть меньше CRITICAL."
-        )
-
-        return 1
-
-    fi
-
-
-    #
-    # Анализируем файловые системы.
-    #
-    # df -P гарантирует POSIX-формат одной строкой на файловую систему.
-    #
-
-    local mount_point
-
-    local usage
-
-
-
-    while IFS=$'\t' read -r mount_point usage
+    while IFS='|' read -r mount_point usage
     do
 
-        [[ -n "${mount_point}" ]] || continue
+        [[ -z "${mount_point}" ]] && continue
 
-        [[ -n "${usage}" ]] || continue
+        [[ -z "${usage}" ]] && continue
+
 
 
         if (( usage >= CRITICAL )); then
@@ -295,8 +402,9 @@ run_disk_check()
             STATUS="CRITICAL"
 
             ALERT_MESSAGES+=(
-                "Раздел ${mount_point}: заполнено ${usage}% (критический порог: ${CRITICAL}%)."
+                "Раздел ${mount_point}: заполнено ${usage}% (критический порог: ${CRITICAL}%)"
             )
+
 
 
         elif (( usage >= WARNING )); then
@@ -308,224 +416,143 @@ run_disk_check()
             fi
 
 
+
             ALERT_MESSAGES+=(
-                "Раздел ${mount_point}: заполнено ${usage}% (порог: ${WARNING}%)."
+                "Раздел ${mount_point}: заполнено ${usage}% (порог предупреждения: ${WARNING}%)"
             )
 
         fi
 
 
+
     done < <(
-
-        df -P \
-            | awk \
-                -v ignore="${IGNORE_MOUNTS}" '
-
-        BEGIN {
-
-            n = split(ignore, a, " ")
-
-        }
-
-        NR > 1 {
-
-            #
-            # Пропуск игнорируемых точек монтирования.
-            #
-
-            skip = 0
-
-            for (i = 1; i <= n; i++) {
-
-                if (a[i] != "" &&
-                    ($6 == a[i] || index($6, a[i] "/") == 1)) {
-
-                    skip = 1
-
-                    break
-
-                }
-
-            }
-
-            if (skip) {
-                next
-            }
-
-
-            #
-            # Пропуск псевдо-ФС и виртуальных файловых систем.
-            #
-
-            if ($1 ~ /(tmpfs|devtmpfs|loop|cdrom|overlay|squashfs)/) {
-                next
-            }
-
-
-            #
-            # Удаляем процент.
-            #
-
-            gsub(/%/, "", $5)
-
-
-            #
-            # Передаем все файловые системы.
-            # Порог проверяется уже в Bash.
-            #
-
-            printf "%s\t%s\n", $6, $5
-
-        }'
-
+        disk_collect_filesystems
     )
 
 
-    #
-    # Обновляем state.
-    #
 
-    if [[ "${STATUS}" == "OK" ]]; then
+    return 0
+}
 
-        clear_alert_state
 
-    else
 
-        write_alert_state
+# ==============================================================================
+# Формирование текста уведомления
+# ==============================================================================
+
+disk_build_alert_message()
+{
+    local status="${1:-OK}"
+
+
+
+    if [[ "${status}" == "OK" ]]; then
+
+        printf '%s\n' \
+            "Использование всех контролируемых файловых систем находится в пределах нормы."
+
+        return 0
 
     fi
 
 
-    #
-    # Возвращаем ошибочный код только для FAIL/CRITICAL.
-    #
-    # WARNING остается предупреждением.
-    #
 
-    case "${STATUS}" in
-
-        OK)
-
-            return 0
-
-            ;;
+    printf '%s\n' \
+        "Обнаружены проблемы с использованием дискового пространства:"
 
 
-        WARNING)
 
-            return 0
-
-            ;;
+    local message
 
 
-        CRITICAL|FAIL)
 
-            return 1
+    for message in "${ALERT_MESSAGES[@]}"
+    do
 
-            ;;
+        printf -- "- %s\n" "${message}"
 
-
-        *)
-
-            return 1
-
-            ;;
-
-    esac
+    done
 
 }
 
 
 
 # ==============================================================================
-# Уведомления
+# Отправка уведомления
 # ==============================================================================
 
+#
+# ВАЖНО:
+#
+# Уведомления выполняются только из режима CHECK.
+#
+# status/report не должны вызывать notify(), поскольку обычное
+# формирование отчета не должно:
+#
+#   - менять notification state;
+#   - запускать throttling;
+#   - создавать recovery;
+#   - отправлять повторные alert.
+#
 
-send_notification()
+disk_send_notification()
 {
+    local status="${1:-OK}"
 
-    #
-    # Если notify.sh отсутствует,
-    # проверка системы все равно считается выполненной.
-    #
+    local message
 
-    if [[ ! -f "${NOTIFY_SCRIPT}" ]]; then
 
-        log_warn \
-            "${DISK_COMPONENT}" \
-            "Система уведомлений недоступна: ${NOTIFY_SCRIPT}" \
-            >&2
+
+    if ! disk_notify_available; then
+
+        disk_warn \
+            "Модуль уведомлений отсутствует: ${NOTIFY_SCRIPT}"
 
         return 0
 
     fi
 
 
+
     #
-    # Загружаем существующий API notify.sh.
+    # Подключаем notify.sh.
+    #
+    # При source его блок прямого запуска НЕ выполняется.
     #
 
     # shellcheck source=/dev/null
     source "${NOTIFY_SCRIPT}"
 
 
-    #
-    # Проверяем наличие функции notify.
-    #
 
     if ! declare -f notify >/dev/null 2>&1; then
 
-        log_warn \
-            "${DISK_COMPONENT}" \
-            "Функция notify() отсутствует в ${NOTIFY_SCRIPT}" \
-            >&2
+        disk_warn \
+            "Функция notify() недоступна."
 
         return 0
 
     fi
 
 
-    local details
+
+    message="$(disk_build_alert_message "${status}")"
 
 
-    if [[ "${STATUS}" == "OK" ]]; then
 
+    #
+    # notify.sh самостоятельно отвечает за:
+    #
+    #   - state;
+    #   - throttling;
+    #   - escalation;
+    #   - recovery.
+    #
 
-        if [[ "${NOTIFY_ON_RECOVERY}" != "true" ]]; then
-
-            return 0
-
-        fi
-
-
-        notify \
-            "disk" \
-            "OK" \
-            "Использование всех дисковых разделов находится в пределах нормы."
-
-
-    else
-
-
-        if [[ "${NOTIFY_ON_ALERT}" != "true" ]]; then
-
-            return 0
-
-        fi
-
-
-        details="$(
-            printf '\n- %s' "${ALERT_MESSAGES[@]}"
-        )"
-
-
-        notify \
-            "disk" \
-            "${STATUS}" \
-            "Обнаружена проблема с заполнением дисковых разделов:${details}"
-
-    fi
+    notify \
+        "disk" \
+        "${status}" \
+        "${message}"
 
 }
 
@@ -537,64 +564,55 @@ send_notification()
 
 disk_status()
 {
+    local status
 
-    if ! run_disk_check; then
 
-        case "${STATUS}" in
 
-            FAIL|CRITICAL)
+    if ! disk_require_df; then
 
-                printf '[FAIL] Disk: %s\n' \
-                    "${STATUS}"
-
-                return 1
-
-                ;;
-
-        esac
+        return 1
 
     fi
 
 
-    case "${STATUS}" in
+
+    if ! disk_validate_config; then
+
+        return 1
+
+    fi
+
+
+
+    disk_evaluate
+
+
+
+    status="${STATUS}"
+
+
+
+    printf 'Disk: %s\n' "${status}"
+
+
+
+    case "${status}" in
 
         OK)
 
-            printf '[ OK ] Дисковые разделы в норме\n'
+            return 0
 
             ;;
 
-
-        WARNING)
-
-            printf '[WARN] Обнаружены предупреждения по заполнению дисков\n'
-
-            printf '       %s\n' \
-                "${ALERT_MESSAGES[@]}"
-
-            ;;
-
-
-        CRITICAL)
-
-            printf '[FAIL] Критическое заполнение дисковых разделов\n'
-
-            printf '       %s\n' \
-                "${ALERT_MESSAGES[@]}"
+        WARNING|CRITICAL)
 
             return 1
 
             ;;
 
+        *)
 
-        FAIL)
-
-            printf '[FAIL] Проверка дисков не выполнена\n'
-
-            printf '       %s\n' \
-                "${ALERT_MESSAGES[@]}"
-
-            return 1
+            return 2
 
             ;;
 
@@ -610,71 +628,155 @@ disk_status()
 
 disk_report()
 {
+    if ! disk_require_df; then
 
-    run_disk_check || true
+        printf 'Disk monitor: unavailable\n'
+
+        return 1
+
+    fi
 
 
-    printf 'Состояние дисков: %s\n' "${STATUS}"
 
-    printf 'WARNING threshold : %s%%\n' "${WARNING}"
+    if ! disk_validate_config; then
 
-    printf 'CRITICAL threshold: %s%%\n' "${CRITICAL}"
+        printf 'Disk monitor: invalid configuration\n'
+
+        return 1
+
+    fi
+
+
+
+    local filesystem
+    local mount_point
+    local usage
+    local status
+
+
+
+    disk_evaluate
+
+    status="${STATUS}"
+
+
+
+    printf 'Disk Monitor\n'
+
+    printf '------------\n'
+
+    printf 'Warning threshold : %s%%\n' "${WARNING}"
+
+    printf 'Critical threshold: %s%%\n' "${CRITICAL}"
+
 
 
     if [[ -n "${IGNORE_MOUNTS}" ]]; then
 
-        printf 'Игнорируемые точки: %s\n' \
-            "${IGNORE_MOUNTS}"
+        printf 'Ignored mounts    : %s\n' "${IGNORE_MOUNTS}"
 
     else
 
-        printf 'Игнорируемые точки: нет\n'
+        printf 'Ignored mounts    : none\n'
 
     fi
+
+
+
+    printf 'Status            : %s\n' "${status}"
+
+
+
+    printf '\n'
+
+    printf '%-35s %10s %12s\n' \
+        "Mount point" \
+        "Usage" \
+        "State"
+
+
+
+    printf '%-35s %10s %12s\n' \
+        "-----------------------------------" \
+        "----------" \
+        "------------"
+
+
+
+    while IFS='|' read -r mount_point usage
+    do
+
+        [[ -z "${mount_point}" ]] && continue
+
+        [[ -z "${usage}" ]] && continue
+
+
+
+        local mount_status="OK"
+
+
+
+        if (( usage >= CRITICAL )); then
+
+            mount_status="CRITICAL"
+
+        elif (( usage >= WARNING )); then
+
+            mount_status="WARNING"
+
+        fi
+
+
+
+        printf '%-35s %9s%% %12s\n' \
+            "${mount_point}" \
+            "${usage}" \
+            "${mount_status}"
+
+
+
+    done < <(
+        disk_collect_filesystems
+    )
+
 
 
     printf '\n'
 
 
-    case "${STATUS}" in
 
-        OK)
+    if [[ "${status}" == "OK" ]]; then
 
-            printf '[ OK ] Все контролируемые файловые системы в норме.\n'
+        printf '%s\n' \
+            "Все контролируемые файловые системы находятся в пределах нормы."
 
-            ;;
+    else
 
-
-        WARNING)
-
-            printf '[WARN] Обнаружены предупреждения:\n'
-
-            printf '  - %s\n' \
-                "${ALERT_MESSAGES[@]}"
-
-            ;;
+        printf '%s\n' \
+            "Обнаруженные проблемы:"
 
 
-        CRITICAL)
 
-            printf '[FAIL] Обнаружены критические проблемы:\n'
-
-            printf '  - %s\n' \
-                "${ALERT_MESSAGES[@]}"
-
-            ;;
+        local message
 
 
-        FAIL)
 
-            printf '[FAIL] Проверка не выполнена:\n'
+        for message in "${ALERT_MESSAGES[@]}"
+        do
 
-            printf '  - %s\n' \
-                "${ALERT_MESSAGES[@]}"
+            printf -- "- %s\n" "${message}"
 
-            ;;
+        done
 
-    esac
+    fi
+
+
+
+    #
+    # REPORT не отправляет уведомления.
+    #
+
+    return 0
 
 }
 
@@ -686,148 +788,174 @@ disk_report()
 
 disk_check()
 {
+    if ! disk_require_df; then
 
-    if run_disk_check; then
+        #
+        # Отсутствие обязательной утилиты является ошибкой самого
+        # мониторинга, а не состоянием диска.
+        #
 
-        case "${STATUS}" in
-
-            OK)
-
-                log_success \
-                    "${DISK_COMPONENT}" \
-                    "Все контролируемые файловые системы в норме." \
-                    >&2
-
-                return 0
-
-                ;;
-
-
-            WARNING)
-
-                log_warn \
-                    "${DISK_COMPONENT}" \
-                    "${ALERT_MESSAGES[*]}" \
-                    >&2
-
-                return 0
-
-                ;;
-
-        esac
+        return 2
 
     fi
 
 
-    log_fail \
-        "${DISK_COMPONENT}" \
-        "${ALERT_MESSAGES[*]:-Проверка дисков завершилась ошибкой.}" \
-        >&2
+
+    if ! disk_validate_config; then
+
+        return 2
+
+    fi
 
 
-    return 1
+
+    disk_evaluate
+
+
+
+    #
+    # Уведомление выполняется именно здесь.
+    #
+
+    case "${STATUS}" in
+
+        OK)
+
+            if [[ "${NOTIFY_ON_RECOVERY}" == "true" ]]; then
+
+                disk_send_notification "OK"
+
+            fi
+
+            ;;
+
+
+        WARNING|CRITICAL)
+
+            if [[ "${NOTIFY_ON_ALERT}" == "true" ]]; then
+
+                disk_send_notification "${STATUS}"
+
+            fi
+
+            ;;
+
+
+        *)
+
+            return 2
+
+            ;;
+
+    esac
+
+
+
+    #
+    # Module API получает ненулевой код при проблемном состоянии.
+    #
+    # Это позволяет module_api_check_all() учитывать модуль как failed.
+    #
+
+    case "${STATUS}" in
+
+        OK)
+
+            return 0
+
+            ;;
+
+        WARNING|CRITICAL)
+
+            return 1
+
+            ;;
+
+        *)
+
+            return 2
+
+            ;;
+
+    esac
 
 }
 
 
 
 # ==============================================================================
-# Основной запуск проверки с блокировкой
+# Основной диспетчер режимов Module API
 # ==============================================================================
 
-run_locked_check()
+main()
 {
+    case "${MODE}" in
 
-    mkdir -p "${STATE_DIR}"
+        status)
 
+            disk_status
 
-    (
-        #
-        # Защита от параллельного запуска.
-        #
-
-        flock -n 200 || exit 0
+            ;;
 
 
-        #
-        # Выполняем проверку.
-        #
+        report)
 
-        run_disk_check
+            disk_report
+
+            ;;
 
 
-        #
-        # Уведомление отправляется только при обычном запуске проверки.
-        #
+        check)
 
-        send_notification
+            disk_check
 
-    ) 200>"${LOCK_FILE}"
+            ;;
+
+
+        *)
+
+            disk_error \
+                "Неизвестный режим: ${MODE}"
+
+            printf '%s\n' \
+                "Использование: $0 {status|report|check}" \
+                >&2
+
+            return 2
+
+            ;;
+
+    esac
 
 }
 
 
 
 # ==============================================================================
-# CLI
+# Основной запуск с блокировкой
 # ==============================================================================
 
-MODE="${1:-check}"
+#
+# Каталог блокировки нужен для защиты от одновременного запуска
+# двух экземпляров одного disk-check.
+#
+# Сам notification state здесь НЕ используется.
+#
+
+mkdir -p "${STATE_DIR}"
 
 
-case "${MODE}" in
 
+#
+# Все режимы используют один lock.
+#
+# Это предотвращает одновременное чтение/проверку одного и того же
+# набора файловых систем несколькими экземплярами.
+#
 
-    status)
+(
+    flock -n 200 || exit 0
 
-        #
-        # status не отправляет уведомления.
-        #
+    main
 
-        run_disk_check
-
-        disk_status
-
-        ;;
-
-
-    report)
-
-        #
-        # report не отправляет уведомления.
-        #
-
-        disk_report
-
-        ;;
-
-
-    check)
-
-        #
-        # check:
-        #
-        #   - выполняет проверку;
-        #   - обновляет state;
-        #   - отправляет уведомление.
-        #
-
-        run_locked_check
-
-        disk_check
-
-        ;;
-
-
-    *)
-
-        log_error \
-            "${DISK_COMPONENT}" \
-            "Неизвестный режим: ${MODE}. Используйте status, report или check." \
-            >&2
-
-        exit 2
-
-        ;;
-
-esac
+) 200>"${LOCK_FILE}"
