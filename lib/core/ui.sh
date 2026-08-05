@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
@@ -280,4 +279,3 @@ print_section()
     ui_section "$@"
 
 }
-```
