@@ -7,31 +7,28 @@
 #   lib/core/logging.sh
 #
 # Назначение:
-#   Единый API журналирования для всех компонентов LSM.
+#   Единый механизм регистрации событий LSM.
 #
-# Возможности:
+# Поддерживаемые уровни:
 #
-#   - вывод сообщений в терминал;
-#   - запись событий в журнал;
-#   - уровни ERROR/WARN/INFO/SUCCESS/DEBUG;
-#   - поддержка компонентов;
-#   - безопасная работа без root;
-#   - совместимость с CLI, installer и module_api.
-#
+#   ERROR   - критическая ошибка выполнения LSM
+#   FAIL    - проверка выполнена, состояние системы неудовлетворительное
+#   WARN    - предупреждение
+#   SUCCESS - успешное выполнение операции
+#   INFO    - информационное сообщение
+#   DEBUG   - отладочная информация
 #
 # Примеры:
 #
-#   log_info "Система запущена"
+#   log_info "Запуск проверки системы"
 #
-#   log_info "SMART" "Проверка диска завершена"
+#   log_warn "SMART" "Температура диска 48°C"
 #
-#   LSM_COMPONENT="INSTALLER"
-#   log_success "Модуль установлен"
-#
+#   log_fail "UPS" "ИБП отключен"
 #
 # Формат файла журнала:
 #
-#   2026-08-05 06:00:00 [INFO   ] [SMART] Проверка завершена
+#   2026-08-05 09:40:12 [WARN   ] [SMART] Температура диска 48°C
 #
 # ==============================================================================
 
@@ -41,7 +38,10 @@ set -Eeuo pipefail
 
 
 #
-# Защита от повторной загрузки
+# Защита от повторной загрузки библиотеки.
+#
+# Библиотеки LSM подключаются через source.
+# Повторная загрузка может привести к переопределению функций.
 #
 
 [[ -n "${LSM_LOGGING_LOADED:-}" ]] && return 0
@@ -51,12 +51,15 @@ readonly LSM_LOGGING_LOADED=1
 
 
 #
-# Настройки по умолчанию
+# Настройки логирования по умолчанию.
+#
+# Можно переопределить до загрузки:
+#
+#   LOG_LEVEL=3
+#   LSM_LOG_DIR=/custom/log/path
 #
 
 : "${LOG_LEVEL:=2}"
-
-: "${LSM_COMPONENT:=SYSTEM}"
 
 : "${LSM_LOG_DIR:=/var/log/lsm}"
 
@@ -65,67 +68,96 @@ readonly LSM_LOGGING_LOADED=1
 
 
 #
-# Уровни:
+# Числовые уровни логирования.
 #
-# 0 ERROR
-# 1 WARN
-# 2 INFO
-# 3 DEBUG
+# Чем меньше число,
+# тем выше приоритет сообщения.
+#
+
+readonly LOG_LEVEL_ERROR=0
+readonly LOG_LEVEL_FAIL=1
+readonly LOG_LEVEL_WARN=1
+readonly LOG_LEVEL_SUCCESS=2
+readonly LOG_LEVEL_INFO=2
+readonly LOG_LEVEL_DEBUG=3
+
+
+
+#
+# Нормализация уровня логирования.
 #
 
 case "${LOG_LEVEL^^}" in
 
     ERROR)
-        LOG_LEVEL=0
+        LOG_LEVEL=${LOG_LEVEL_ERROR}
+        ;;
+
+    FAIL)
+        LOG_LEVEL=${LOG_LEVEL_FAIL}
         ;;
 
     WARN|WARNING)
-        LOG_LEVEL=1
+        LOG_LEVEL=${LOG_LEVEL_WARN}
+        ;;
+
+    SUCCESS)
+        LOG_LEVEL=${LOG_LEVEL_SUCCESS}
         ;;
 
     INFO)
-        LOG_LEVEL=2
+        LOG_LEVEL=${LOG_LEVEL_INFO}
         ;;
 
     DEBUG)
-        LOG_LEVEL=3
+        LOG_LEVEL=${LOG_LEVEL_DEBUG}
         ;;
 
 esac
 
 
 
+#
+# Проверка корректности уровня.
+#
+# При ошибочном значении используется INFO.
+#
+
 if ! [[ "${LOG_LEVEL}" =~ ^[0-3]$ ]]; then
 
-    LOG_LEVEL=2
+    LOG_LEVEL=${LOG_LEVEL_INFO}
 
 fi
 
 
 
 #
-# Подключение цветов.
+# Цвета для консольного вывода.
 #
 # Если colors.sh уже загружен,
-# используем его значения.
+# используются его значения.
+#
+# Здесь только безопасный fallback.
 #
 
-: "${COLOR_RED:=\033[31m}"
+: "${COLOR_RESET:=}"
 
-: "${COLOR_GREEN:=\033[32m}"
+: "${COLOR_RED:=}"
 
-: "${COLOR_YELLOW:=\033[33m}"
+: "${COLOR_YELLOW:=}"
 
-: "${COLOR_BLUE:=\033[34m}"
+: "${COLOR_GREEN:=}"
 
-: "${COLOR_MAGENTA:=\033[35m}"
+: "${COLOR_BLUE:=}"
 
-: "${COLOR_RESET:=\033[0m}"
+: "${COLOR_MAGENTA:=}"
+
+: "${COLOR_CYAN:=}"
 
 
 
 #
-# Время сообщения
+# Получение текущего времени.
 #
 
 _log_timestamp()
@@ -136,86 +168,103 @@ _log_timestamp()
 
 
 #
-# Проверка возможности записи журнала
+# Преобразование имени уровня.
 #
 
-_prepare_log_directory()
+_log_level_name()
 {
+    local level="${1}"
 
-    if [[ -d "${LSM_LOG_DIR}" ]]; then
+    case "${level}" in
 
-        return 0
+        0)
+            echo "ERROR"
+            ;;
 
-    fi
+        1)
+            echo "WARN"
+            ;;
 
+        2)
+            echo "INFO"
+            ;;
 
+        3)
+            echo "DEBUG"
+            ;;
 
-    mkdir -p "${LSM_LOG_DIR}" 2>/dev/null || true
+        *)
+            echo "INFO"
+            ;;
 
-
-    if [[ ! -d "${LSM_LOG_DIR}" ]]; then
-
-        LSM_LOG_DIR="/tmp/lsm"
-
-        LSM_LOG_FILE="${LSM_LOG_DIR}/lsm.log"
-
-
-        mkdir -p "${LSM_LOG_DIR}" 2>/dev/null || true
-
-    fi
-
+    esac
 }
 
 
 
 #
-# Внутренняя функция записи
+# Выбор цвета сообщения.
 #
 
-_log_write_file()
+_log_level_color()
 {
+    local label="${1}"
 
-    local entry="$1"
+    case "${label}" in
 
+        ERROR)
+            printf "%s" "${COLOR_RED}"
+            ;;
 
-    _prepare_log_directory
+        FAIL)
+            printf "%s" "${COLOR_RED}"
+            ;;
 
+        WARN)
+            printf "%s" "${COLOR_YELLOW}"
+            ;;
 
-    echo "${entry}" >> "${LSM_LOG_FILE}" 2>/dev/null || true
+        SUCCESS)
+            printf "%s" "${COLOR_GREEN}"
+            ;;
 
+        INFO)
+            printf "%s" "${COLOR_BLUE}"
+            ;;
+
+        DEBUG)
+            printf "%s" "${COLOR_MAGENTA}"
+            ;;
+
+        *)
+            printf "%s" ""
+
+    esac
 }
 
 
 
 #
-# Основная функция логирования
+# Внутренняя функция записи сообщения.
 #
 # Аргументы:
 #
 #   $1 уровень
-#   $2 цвет
-#   $3 название уровня
-#   $4 компонент
-#   $5 сообщение
+#   $2 название уровня
+#   $3 компонент
+#   $4 сообщение
 #
 
-_log()
+_log_write()
 {
-
     local level="$1"
-
-    local color="$2"
-
-    local label="$3"
-
-    local component="$4"
-
-    local message="$5"
-
+    local label="$2"
+    local component="$3"
+    local message="$4"
 
 
     #
-    # Проверяем уровень вывода
+    # Проверяем необходимость вывода.
     #
 
     if (( LOG_LEVEL < level )); then
@@ -233,229 +282,234 @@ _log()
 
 
     #
-    # Текст без цветов.
-    # Используется для файла.
+    # Цветной вывод в терминал.
     #
 
-    local plain
+    local color
+
+    color="$(_log_level_color "${label}")"
 
 
-    plain=$(printf "%s [%-7s] [%s] %s" \
+
+    local console_line
+
+    console_line=$(printf "%b%s [%-7s] [%s]%b %s" \
+        "${color}" \
         "${timestamp}" \
         "${label}" \
         "${component}" \
+        "${COLOR_RESET}" \
         "${message}")
 
 
 
-    _log_write_file "${plain}"
+    if [[ "${label}" == "ERROR" || "${label}" == "FAIL" ]]; then
 
-
-
-    #
-    # Цветной вывод в терминал.
-    #
-
-    if [[ -t 1 ]]; then
-
-
-        local console
-
-
-        console=$(printf "%b%s [%-7s] [%s]%b %s" \
-            "${color}" \
-            "${timestamp}" \
-            "${label}" \
-            "${component}" \
-            "${COLOR_RESET}" \
-            "${message}")
-
-
-        if [[ "${label}" == "ERROR" ]]; then
-
-            printf "%b\n" "${console}" >&2
-
-        else
-
-            printf "%b\n" "${console}"
-
-        fi
-
+        printf "%s\n" "${console_line}" >&2
 
     else
 
-
-        printf "%s\n" "${plain}"
-
+        printf "%s\n" "${console_line}"
 
     fi
 
+
+
+    #
+    # Запись в файл.
+    #
+    # Ошибка журнала не должна останавливать LSM.
+    #
+
+    mkdir -p "${LSM_LOG_DIR}" 2>/dev/null || true
+
+
+    printf "%s [%-7s] [%s] %s\n" \
+        "${timestamp}" \
+        "${label}" \
+        "${component}" \
+        "${message}" \
+        >> "${LSM_LOG_FILE}" 2>/dev/null || true
+
 }
 
+# ==============================================================================
+# Разбор аргументов публичных функций.
+#
+# Поддерживаемые варианты:
+#
+# Вариант 1:
+#
+#   log_info "Система запущена"
+#
+# Результат:
+#
+#   [INFO] [SYSTEM] Система запущена
+#
+#
+# Вариант 2:
+#
+#   log_info "SMART" "Проверка диска"
+#
+# Результат:
+#
+#   [INFO] [SMART] Проверка диска
+#
+# ==============================================================================
 
-
-#
-# Разбор аргументов
-#
-# Поддержка:
-#
-#   log_info "текст"
-#
-#   log_info "MODULE" "текст"
-#
-
-_parse_log_args()
+_log_parse_args()
 {
-
     local level="$1"
+    local label="$2"
 
-    local color="$2"
-
-    local label="$3"
-
-
-    shift 3
+    shift 2
 
 
-
-    local component="${LSM_COMPONENT}"
-
+    local component="SYSTEM"
     local message=""
 
 
+    #
+    # Совместимость со старым API:
+    #
+    # log_info "MODULE" "Message"
+    #
 
     if [[ $# -ge 2 ]]; then
-
 
         component="$1"
 
         shift
 
-
         message="$*"
-
 
 
     elif [[ $# -eq 1 ]]; then
 
-
         message="$1"
-
-
-
-    else
-
-
-        message=""
 
     fi
 
 
 
-    _log \
+    _log_write \
         "${level}" \
-        "${color}" \
         "${label}" \
         "${component}" \
         "${message}"
-
 }
 
 
 
-#
-# Публичный API
-#
+# ==============================================================================
+# Публичный API LSM
+# ==============================================================================
 
+
+#
+# ERROR
+#
+# Ошибка выполнения самого LSM.
+#
+# Пример:
+#
+#   Не найден конфигурационный файл
+#
 
 log_error()
 {
-
-    _parse_log_args \
-        0 \
-        "${COLOR_RED}" \
+    _log_parse_args \
+        "${LOG_LEVEL_ERROR}" \
         "ERROR" \
         "$@"
-
 }
 
 
+
+#
+# FAIL
+#
+# Проверка выполнена,
+# но обнаружено плохое состояние системы.
+#
+# Пример:
+#
+#   RAID degraded
+#   UPS отключен
+#
+
+log_fail()
+{
+    _log_parse_args \
+        "${LOG_LEVEL_FAIL}" \
+        "FAIL" \
+        "$@"
+}
+
+
+
+#
+# WARN
+#
+# Предупреждение.
+#
+# Пример:
+#
+#   Температура диска 48°C
+#
 
 log_warn()
 {
-
-    _parse_log_args \
-        1 \
-        "${COLOR_YELLOW}" \
+    _log_parse_args \
+        "${LOG_LEVEL_WARN}" \
         "WARN" \
         "$@"
-
 }
 
 
 
-log_info()
-{
-
-    _parse_log_args \
-        2 \
-        "${COLOR_BLUE}" \
-        "INFO" \
-        "$@"
-
-}
-
-
+#
+# SUCCESS
+#
+# Успешное выполнение операции.
+#
 
 log_success()
 {
-
-    _parse_log_args \
-        2 \
-        "${COLOR_GREEN}" \
+    _log_parse_args \
+        "${LOG_LEVEL_SUCCESS}" \
         "SUCCESS" \
         "$@"
-
 }
 
 
+
+#
+# INFO
+#
+# Обычная информация.
+#
+
+log_info()
+{
+    _log_parse_args \
+        "${LOG_LEVEL_INFO}" \
+        "INFO" \
+        "$@"
+}
+
+
+
+#
+# DEBUG
+#
+# Отладочная информация.
+#
 
 log_debug()
 {
-
-    _parse_log_args \
-        3 \
-        "${COLOR_MAGENTA}" \
+    _log_parse_args \
+        "${LOG_LEVEL_DEBUG}" \
         "DEBUG" \
         "$@"
-
-}
-
-
-
-#
-# Совместимость с module_api
-#
-
-module_log_info()
-{
-    log_info "$@"
-}
-
-
-module_log_warn()
-{
-    log_warn "$@"
-}
-
-
-module_log_error()
-{
-    log_error "$@"
-}
-
-
-module_log_success()
-{
-    log_success "$@"
 }
