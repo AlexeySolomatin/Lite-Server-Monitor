@@ -7,25 +7,21 @@
 #   lib/core/ui.sh
 #
 # Назначение:
-#   Общие функции вывода для установщика и CLI:
+#   Общий слой отображения информации:
 #
-#   - отображение баннера LSM;
-#   - вывод заголовков разделов;
-#   - управление цветами терминала;
-#   - подготовка базовых функций UI.
+#   - баннер LSM;
+#   - заголовки разделов;
+#   - статусные сообщения;
+#   - форматирование отчетов;
+#   - управление цветами.
 #
 # Используется:
-#   installer/wizard.sh
-#   installer/screens/*.sh
-#   CLI-команды LSM
+#   installer/
+#   commands/
+#   report.sh
 #
 # Требования:
 #   Bash 4+
-#
-# Совместимость:
-#   - цвет отключается при выводе не в TTY;
-#   - поддерживается переменная NO_COLOR;
-#   - пригодно для CI/CD и автоматических запусков.
 #
 # ==============================================================================
 
@@ -47,15 +43,13 @@ readonly LSM_UI_LOADED=1
 #
 # Определение корня проекта
 #
-# Используется только если LSM_ROOT еще не установлен.
-#
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 
 
 #
-# Версия проекта
+# Версия LSM
 #
 
 if [[ -z "${PROJECT_VERSION:-}" ]]; then
@@ -63,15 +57,11 @@ if [[ -z "${PROJECT_VERSION:-}" ]]; then
 
     if [[ -f "${LSM_ROOT}/VERSION" ]]; then
 
-
         PROJECT_VERSION="$(tr -d '\r\n' < "${LSM_ROOT}/VERSION")"
-
 
     else
 
-
         PROJECT_VERSION="unknown"
-
 
     fi
 
@@ -83,16 +73,10 @@ fi
 
 
 #
-# Подключение цветов
-#
-# Если colors.sh уже загружен —
-# используются существующие значения.
-#
-# Если нет — определяются локально.
+# Подключение цветовой схемы
 #
 
 if [[ -f "${LSM_ROOT}/lib/core/colors.sh" ]]; then
-
 
     # shellcheck source=/dev/null
     source "${LSM_ROOT}/lib/core/colors.sh"
@@ -111,9 +95,7 @@ else
         COLOR_GREEN=$'\033[32m'
         COLOR_YELLOW=$'\033[33m'
         COLOR_BLUE=$'\033[34m'
-        COLOR_MAGENTA=$'\033[35m'
         COLOR_CYAN=$'\033[36m'
-        COLOR_WHITE=$'\033[37m'
 
 
     else
@@ -126,13 +108,10 @@ else
         COLOR_GREEN=""
         COLOR_YELLOW=""
         COLOR_BLUE=""
-        COLOR_MAGENTA=""
         COLOR_CYAN=""
-        COLOR_WHITE=""
 
 
     fi
-
 
 fi
 
@@ -145,28 +124,26 @@ export COLOR_RED
 export COLOR_GREEN
 export COLOR_YELLOW
 export COLOR_BLUE
-export COLOR_MAGENTA
 export COLOR_CYAN
-export COLOR_WHITE
 
 
 
 #
-# Верхний заголовок LSM
+# Главный баннер LSM
 #
 
 print_header()
 {
 
-    cat <<EOF
+cat <<EOF
 
-${COLOR_CYAN}${COLOR_BOLD}=====================================================================
+${COLOR_CYAN}${COLOR_BOLD}
+=====================================================================
    __     _____    __  __   (LSM) Lite Server Monitor
   / /    / ___/   /  \/  |   Lightweight System Monitoring & Alerting
  / /___  \___ \  / /\__/ |   Version: ${PROJECT_VERSION}
 /_____/ /_____/ /_/    /_/   Linux Server Management Tools
 =====================================================================
-
 ${COLOR_RESET}
 
 EOF
@@ -178,27 +155,22 @@ EOF
 #
 # Алиас баннера
 #
-# Используется в разных частях проекта.
-#
 
 ui_banner()
 {
-
     print_header
-
 }
 
 
 
 #
-# Вывод заголовка раздела
+# Заголовок раздела
 #
 
 ui_section()
 {
 
     local title="${1:-}"
-
 
     printf "\n%s---> %s%s\n" \
         "${COLOR_BOLD}" \
@@ -210,12 +182,100 @@ ui_section()
 
 
 #
+# Разделитель
+#
+
+ui_separator()
+{
+
+    printf "%s\n" \
+        "---------------------------------------------------------------------"
+
+}
+
+
+
+#
+# Информационное сообщение
+#
+
+ui_info()
+{
+
+    printf "[ INFO ] %s\n" \
+        "${1:-}"
+
+}
+
+
+
+#
+# Успешное состояние
+#
+
+ui_ok()
+{
+
+    printf "%b[ OK   ]%b %s\n" \
+        "${COLOR_GREEN}" \
+        "${COLOR_RESET}" \
+        "${1:-}"
+
+}
+
+
+
+#
+# Предупреждение
+#
+
+ui_warn()
+{
+
+    printf "%b[ WARN ]%b %s\n" \
+        "${COLOR_YELLOW}" \
+        "${COLOR_RESET}" \
+        "${1:-}"
+
+}
+
+
+
+#
+# Ошибка
+#
+
+ui_fail()
+{
+
+    printf "%b[ FAIL ]%b %s\n" \
+        "${COLOR_RED}" \
+        "${COLOR_RESET}" \
+        "${1:-}"
+
+}
+
+
+
+#
+# Статус неизвестен
+#
+
+ui_unknown()
+{
+
+    printf "[ ???? ] %s\n" \
+        "${1:-}"
+
+}
+
+
+
+#
 # Совместимость со старыми вызовами
 #
 
 print_section()
 {
-
     ui_section "$@"
-
 }
