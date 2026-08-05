@@ -3,22 +3,24 @@
 # Lite Server Monitor (LSM)
 # CLI Команда: Генератор отчетов
 #
-# Назначение:
-#   Создание диагностического отчета LSM.
-#
-# Возможности:
-#   - вывод отчета в терминал;
-#   - сохранение отчета в файл;
-#   - отправка через систему уведомлений.
-#
-# Использование:
-#
-#   lsm report
-#   lsm report --save
-#   lsm report --send
-#
 # Путь:
 #   commands/report.sh
+#
+# Назначение:
+#
+#   Создание системного отчета LSM.
+#
+# Возможности:
+#
+#   lsm report
+#       вывод отчета в терминал
+#
+#   lsm report --save
+#       сохранение отчета в файл
+#
+#   lsm report --send
+#       отправка через систему уведомлений
+#
 # ==============================================================================
 
 
@@ -30,12 +32,7 @@ set -Eeuo pipefail
 # Определение корня LSM
 #
 
-if [[ -z "${LSM_ROOT:-}" ]]; then
-
-    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-fi
-
+LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 export LSM_ROOT
 
@@ -49,6 +46,7 @@ for library in \
     "lib/core/common.sh" \
     "lib/core/logging.sh" \
     "lib/core/ui.sh" \
+    "lib/core/module_api.sh" \
     "lib/core/report.sh"
 do
 
@@ -68,11 +66,20 @@ readonly REPORT_COMPONENT="REPORT"
 
 
 #
-# Параметры запуска
+# Параметры
 #
 
 SEND_NOTIFICATION=false
+
 SAVE_REPORT=false
+
+
+
+#
+# Каталог хранения отчетов
+#
+
+LSM_REPORT_DIR="${LSM_REPORT_DIR:-/var/lib/lsm/reports}"
 
 
 
@@ -100,10 +107,6 @@ do
             ;;
 
 
-        *)
-
-            ;;
-
     esac
 
 done
@@ -111,7 +114,7 @@ done
 
 
 #
-# Проверка генератора
+# Проверка API отчета
 #
 
 if ! declare -f report_generate_full >/dev/null 2>&1; then
@@ -119,23 +122,50 @@ if ! declare -f report_generate_full >/dev/null 2>&1; then
 
     log_error \
         "${REPORT_COMPONENT}" \
-        "Библиотека генерации отчета недоступна."
+        "Функция генерации отчета недоступна."
 
 
     exit 1
-
 
 fi
 
 
 
 #
-# Создание отчета
+# Генерация отчета
 #
 
 report_content="$(
     report_generate_full
-)"
+)" || {
+
+
+    log_error \
+        "${REPORT_COMPONENT}" \
+        "Ошибка формирования отчета."
+
+
+    exit 1
+
+}
+
+
+
+#
+# Проверка результата
+#
+
+if [[ -z "${report_content}" ]]; then
+
+
+    log_error \
+        "${REPORT_COMPONENT}" \
+        "Отчет пустой."
+
+
+    exit 1
+
+fi
 
 
 
@@ -146,13 +176,11 @@ report_content="$(
 if [[ "${SAVE_REPORT}" == "true" ]]; then
 
 
-    REPORT_DIR="/var/lib/lsm/reports"
+    mkdir -p "${LSM_REPORT_DIR}"
 
 
-    mkdir -p "${REPORT_DIR}"
 
-
-    REPORT_FILE="${REPORT_DIR}/lsm-report-$(date +%F_%H-%M-%S).txt"
+    REPORT_FILE="${LSM_REPORT_DIR}/lsm-report-$(date +%F_%H-%M-%S).txt"
 
 
 
@@ -170,7 +198,6 @@ if [[ "${SAVE_REPORT}" == "true" ]]; then
         "${REPORT_COMPONENT}" \
         "Отчет сохранен: ${REPORT_FILE}"
 
-
 fi
 
 
@@ -186,27 +213,12 @@ if [[ "${SEND_NOTIFICATION}" == "true" ]]; then
 
 
 
-    if [[ -x "${notify_script}" ]]; then
-
-
-        "${notify_script}" \
-            "daily_report" \
-            "OK" \
-            "${report_content}"
-
-
-
-        log_success \
-            "${REPORT_COMPONENT}" \
-            "Отчет отправлен."
-
-
-    else
+    if [[ ! -x "${notify_script}" ]]; then
 
 
         log_error \
             "${REPORT_COMPONENT}" \
-            "Модуль уведомлений отсутствует."
+            "Система уведомлений недоступна."
 
 
         exit 1
@@ -215,7 +227,32 @@ if [[ "${SEND_NOTIFICATION}" == "true" ]]; then
     fi
 
 
-else
+
+    "${notify_script}" \
+        "daily_report" \
+        "OK" \
+        "${report_content}"
+
+
+
+    log_success \
+        "${REPORT_COMPONENT}" \
+        "Отчет отправлен."
+
+
+
+fi
+
+
+
+#
+# Если нет сохранения и отправки,
+# выводим отчет пользователю
+#
+
+if [[ "${SAVE_REPORT}" == "false" &&
+      "${SEND_NOTIFICATION}" == "false" ]]; then
+
 
 
     ui_section \
@@ -225,6 +262,5 @@ else
 
     printf "%s\n" \
         "${report_content}"
-
 
 fi
