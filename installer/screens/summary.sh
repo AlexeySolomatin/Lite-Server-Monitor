@@ -169,7 +169,32 @@ screen_summary()
 
 
 
-    if [[ ${#SELECTED_MODULES[@]:-0} -gt 0 ]]; then
+    #
+    # Безопасно определяем количество выбранных модулей.
+    #
+    # summary.sh работает с set -u, поэтому прямое обращение:
+    #
+    #   ${#SELECTED_MODULES[@]}
+    #
+    # вызовет ошибку, если массив еще не был создан.
+    #
+
+    local module_count=0
+
+
+
+    if declare -p SELECTED_MODULES >/dev/null 2>&1; then
+
+        module_count="${#SELECTED_MODULES[@]}"
+
+    fi
+
+
+
+    if (( module_count > 0 )); then
+
+
+        local module
 
 
         for module in "${SELECTED_MODULES[@]}"; do
