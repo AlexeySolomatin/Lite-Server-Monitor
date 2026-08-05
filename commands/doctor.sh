@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# CLI Команда: Самодиагностика системы LSM
-#
-# Назначение:
-#   Проверка целостности установки LSM:
-#
-#   - права доступа;
-#   - каталоги;
-#   - systemd службы;
-#   - systemd таймеры;
-#   - установленные модули;
-#   - доступность Docker;
-#   - ошибки конфигурации.
+# CLI Команда: Самодиагностика системы
 #
 # Путь:
 #   commands/doctor.sh
+#
+# Назначение:
+#
+#   Проверка корректности установленной системы LSM.
+#
+# Проверяет:
+#
+#   - права доступа;
+#   - каталоги LSM;
+#   - systemd;
+#   - установленные модули;
+#   - Docker;
+#   - состояние компонентов.
+#
 # ==============================================================================
 
 
@@ -27,12 +30,7 @@ set -Eeuo pipefail
 # Определение корня LSM
 #
 
-if [[ -z "${LSM_ROOT:-}" ]]; then
-
-    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-fi
-
+LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 export LSM_ROOT
 
@@ -46,10 +44,7 @@ for library in \
     "lib/core/common.sh" \
     "lib/core/logging.sh" \
     "lib/core/ui.sh" \
-    "lib/installer/module_loader.sh" \
-    "lib/installer/registry.sh" \
-    "lib/installer/modules.sh" \
-    "lib/installer/module_validator.sh"
+    "lib/core/module_api.sh"
 do
 
     if [[ -f "${LSM_ROOT}/${library}" ]]; then
@@ -68,8 +63,43 @@ readonly DOCTOR_COMPONENT="DOCTOR"
 
 
 #
-# Проверка каталога
+# Счетчики результата
 #
+
+DOCTOR_ERRORS=0
+DOCTOR_WARNINGS=0
+
+
+
+#
+# Регистрация ошибки
+#
+
+doctor_error()
+{
+
+    DOCTOR_ERRORS=$((DOCTOR_ERRORS+1))
+
+}
+
+
+
+#
+# Регистрация предупреждения
+#
+
+doctor_warn()
+{
+
+    DOCTOR_WARNINGS=$((DOCTOR_WARNINGS+1))
+
+}
+
+
+
+# ==============================================================================
+# Проверка каталогов
+# ==============================================================================
 
 doctor_check_directory()
 {
@@ -94,7 +124,7 @@ doctor_check_directory()
             "Каталог отсутствует: ${directory}"
 
 
-        return 1
+        doctor_error
 
 
     fi
@@ -103,19 +133,20 @@ doctor_check_directory()
 
 
 
-#
+# ==============================================================================
 # Проверка root
-#
+# ==============================================================================
 
 doctor_check_root()
 {
+
 
     if [[ "${EUID}" -eq 0 ]]; then
 
 
         log_success \
             "${DOCTOR_COMPONENT}" \
-            "Запущено с правами root"
+            "Запуск выполнен с правами root"
 
 
     else
@@ -123,10 +154,10 @@ doctor_check_root()
 
         log_error \
             "${DOCTOR_COMPONENT}" \
-            "Необходимо выполнить от root"
+            "Требуются права root"
 
 
-        return 1
+        doctor_error
 
 
     fi
@@ -135,9 +166,9 @@ doctor_check_root()
 
 
 
-#
+# ==============================================================================
 # Проверка systemd
-#
+# ==============================================================================
 
 doctor_check_systemd()
 {
@@ -151,6 +182,10 @@ doctor_check_systemd()
             "Systemd отсутствует"
 
 
+
+        doctor_warn
+
+
         return 0
 
 
@@ -160,7 +195,7 @@ doctor_check_systemd()
 
     log_info \
         "${DOCTOR_COMPONENT}" \
-        "Проверка systemd служб"
+        "Проверка служб LSM"
 
 
 
@@ -177,7 +212,7 @@ doctor_check_systemd()
 
     log_info \
         "${DOCTOR_COMPONENT}" \
-        "Проверка systemd timers"
+        "Проверка таймеров LSM"
 
 
 
@@ -191,25 +226,29 @@ doctor_check_systemd()
 
 
 
-#
+# ==============================================================================
 # Проверка модулей
-#
+# ==============================================================================
 
 doctor_check_modules()
 {
 
+
     log_info \
         "${DOCTOR_COMPONENT}" \
-        "Проверка модулей LSM"
+        "Проверка установленных модулей"
 
 
 
-    if ! declare -f modules_installed_list >/dev/null 2>&1; then
+    if ! declare -f module_api_list_installed >/dev/null 2>&1; then
 
 
         log_warn \
             "${DOCTOR_COMPONENT}" \
-            "API модулей недоступен"
+            "Module API недоступен"
+
+
+        doctor_warn
 
 
         return 0
@@ -231,7 +270,7 @@ doctor_check_modules()
 
 
 
-        if module_validate_all "${module}"; then
+        if module_api_check "${module}"; then
 
 
             log_success \
@@ -244,7 +283,10 @@ doctor_check_modules()
 
             log_error \
                 "${DOCTOR_COMPONENT}" \
-                "Ошибка модуля: ${module}"
+                "Ошибка проверки модуля: ${module}"
+
+
+            doctor_error
 
 
         fi
@@ -252,16 +294,17 @@ doctor_check_modules()
 
 
     done < <(
-        modules_installed_list
+        module_api_list_installed
     )
+
 
 }
 
 
 
-#
+# ==============================================================================
 # Проверка Docker
-#
+# ==============================================================================
 
 doctor_check_docker()
 {
@@ -294,7 +337,7 @@ doctor_check_docker()
 
 
 
-    if systemctl is-active --quiet docker; then
+    if systemctl is-active --quiet docker 2>/dev/null; then
 
 
         log_success \
@@ -307,23 +350,52 @@ doctor_check_docker()
 
         log_warn \
             "${DOCTOR_COMPONENT}" \
-            "docker.service не запущена"
+            "docker.service не активна"
+
+
+        doctor_warn
 
 
     fi
 
 
 
+    if docker info >/dev/null 2>&1; then
+
+
+        log_success \
+            "${DOCTOR_COMPONENT}" \
+            "Docker daemon доступен"
+
+
+    else
+
+
+        log_error \
+            "${DOCTOR_COMPONENT}" \
+            "Docker daemon недоступен"
+
+
+        doctor_error
+
+
+    fi
+
+
 }
 
 
 
-#
-# Основная диагностика
-#
+# ==============================================================================
+# Основной запуск диагностики
+# ==============================================================================
 
 run_doctor()
 {
+
+
+    ui_banner
+
 
     ui_section \
         "Диагностика Lite Server Monitor"
@@ -334,26 +406,26 @@ run_doctor()
 
 
 
-    echo "[1/7] Проверка прав"
+    echo "[1/5] Проверка прав"
 
-    doctor_check_root || true
-
-
-
-    echo
-    echo "[2/7] Проверка каталогов"
-
-
-
-    doctor_check_directory "/etc/lsm" || true
-    doctor_check_directory "/opt/lsm" || true
-    doctor_check_directory "/var/lib/lsm" || true
-    doctor_check_directory "/var/log/lsm" || true
+    doctor_check_root
 
 
 
     echo
-    echo "[3/7] Systemd"
+    echo "[2/5] Проверка каталогов"
+
+
+
+    doctor_check_directory "/etc/lsm"
+    doctor_check_directory "/opt/lsm"
+    doctor_check_directory "/var/lib/lsm"
+    doctor_check_directory "/var/log/lsm"
+
+
+
+    echo
+    echo "[3/5] Systemd"
 
 
 
@@ -362,27 +434,7 @@ run_doctor()
 
 
     echo
-    echo "[4/7] Registry модулей"
-
-
-
-    if declare -f registry_load_default >/dev/null 2>&1; then
-
-
-        registry_load_default
-
-
-        log_success \
-            "${DOCTOR_COMPONENT}" \
-            "Registry модулей загружен"
-
-
-    fi
-
-
-
-    echo
-    echo "[5/7] Проверка модулей"
+    echo "[4/5] Модули"
 
 
 
@@ -391,7 +443,7 @@ run_doctor()
 
 
     echo
-    echo "[6/7] Docker"
+    echo "[5/5] Docker"
 
 
 
@@ -400,13 +452,42 @@ run_doctor()
 
 
     echo
-    echo "[7/7] Завершение"
+
+
+
+    ui_section \
+        "Итог диагностики"
+
+
+
+    echo "Ошибок:        ${DOCTOR_ERRORS}"
+
+    echo "Предупреждений: ${DOCTOR_WARNINGS}"
+
+
+
+    if (( DOCTOR_ERRORS > 0 )); then
+
+
+        log_error \
+            "${DOCTOR_COMPONENT}" \
+            "Диагностика завершена с ошибками."
+
+
+        return 1
+
+
+    fi
 
 
 
     log_success \
         "${DOCTOR_COMPONENT}" \
-        "Диагностика завершена"
+        "Система LSM работает корректно."
+
+
+
+    return 0
 
 }
 
