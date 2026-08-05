@@ -1,33 +1,46 @@
+```bash
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module API v1.1
+# Module API
+#
+# Назначение:
+#   Единый интерфейс взаимодействия ядра LSM с модулями мониторинга.
+#
+# Используется:
+#   - lib/core/report.sh
+#   - commands/report.sh
+#   - commands/doctor.sh
+#   - commands/status.sh
+#   - другие компоненты, которым требуется запуск проверки модуля
+#
+# Поддерживаемый интерфейс модулей:
+#
+#   check_<module>.sh status
+#       Краткий статус модуля
+#
+#   check_<module>.sh report
+#       Подробный отчет модуля
+#
+#   check_<module>.sh check
+#       Машинная проверка состояния
+#
+# Структура модуля:
+#
+#   modules/<module>/
+#       install.sh
+#       uninstall.sh
+#       manifest.conf
+#       README.md
+#       files/
+#           check_<module>.sh
+#
+# Дополнительно поддерживается:
+#
+#   modules/<module>/files/check.sh
 #
 # Путь:
 #   lib/core/module_api.sh
-#
-# Назначение:
-#   Единый интерфейс взаимодействия ядра LSM
-#   с модулями мониторинга.
-#
-# Поддерживаемый контракт модулей:
-#
-#   check.sh status
-#       Краткий статус
-#
-#   check.sh report
-#       Подробный отчет
-#
-#   check.sh check
-#       Машинная проверка
-#
-#
-# Коды возврата:
-#
-#   0 - OK
-#   1 - WARN
-#   2 - FAIL
-#   3 - ERROR
 #
 # ==============================================================================
 
@@ -37,7 +50,7 @@ set -Eeuo pipefail
 
 
 #
-# Защита от повторной загрузки
+# Защита от повторной загрузки библиотеки.
 #
 
 [[ -n "${LSM_MODULE_API_LOADED:-}" ]] && return 0
@@ -46,87 +59,203 @@ readonly LSM_MODULE_API_LOADED=1
 
 
 
+# ==============================================================================
+# Конфигурация
+# ==============================================================================
+
+#
+# Компонент логирования.
+#
+
 readonly MODULE_API_COMPONENT="MODULE_API"
 
 
 
 #
-# Статусы модулей
+# Корень проекта.
 #
-
-readonly MODULE_STATUS_OK=0
-readonly MODULE_STATUS_WARN=1
-readonly MODULE_STATUS_FAIL=2
-readonly MODULE_STATUS_ERROR=3
-
-
-
-#
-# Пути
+# Используется существующий LSM_ROOT,
+# если он уже был установлен вызывающим компонентом.
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
+export LSM_ROOT
+
+
+
+#
+# Каталог модулей.
+#
+
 LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
+
+
+#
+# Каталог состояния LSM.
+#
+
 LSM_STATE_DIR="${LSM_STATE_DIR:-/var/lib/lsm}"
+
+
+
+#
+# Каталог state-файлов модулей.
+#
 
 LSM_MODULE_STATE_DIR="${LSM_MODULE_STATE_DIR:-${LSM_STATE_DIR}/modules}"
 
 
 
-#
-# Загрузка UI если доступен
-#
-
-if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
-
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/ui.sh"
-
-fi
-
-
+# ==============================================================================
+# Внутренние функции
+# ==============================================================================
 
 #
-# Fallback UI
+# Проверка имени модуля.
+#
+# Имена модулей LSM должны состоять только из:
+#
+#   a-z
+#   A-Z
+#   0-9
+#   _
+#   -
+#
+# Это одновременно обеспечивает предсказуемость структуры
+# и не позволяет передавать в API произвольные пути.
 #
 
-if ! declare -f ui_ok >/dev/null 2>&1; then
-
-    ui_ok()
-    {
-        echo "[ OK   ] $*"
-    }
+_module_api_valid_name()
+{
+    local module="${1:-}"
 
 
-    ui_warn()
-    {
-        echo "[ WARN ] $*"
-    }
+
+    [[ -n "${module}" ]] || return 1
 
 
-    ui_fail()
-    {
-        echo "[ FAIL ] $*"
-    }
 
-
-    ui_error()
-    {
-        echo "[ERROR ] $*"
-    }
-
-fi
+    [[ "${module}" =~ ^[a-zA-Z0-9_-]+$ ]]
+}
 
 
 
 #
-# Получение списка установленных модулей
+# Проверка допустимого режима запуска.
+#
+
+_module_api_valid_mode()
+{
+    local mode="${1:-}"
+
+
+
+    case "${mode}" in
+
+        status|report|check)
+            return 0
+            ;;
+
+        *)
+            return 1
+            ;;
+
+    esac
+}
+
+
+
+#
+# Безопасное предупреждение.
+#
+# module_api.sh обычно загружается после logging.sh.
+# Однако библиотека не должна падать только потому,
+# что logging.sh еще не был загружен.
+#
+
+_module_api_log_warn()
+{
+    if declare -f log_warn >/dev/null 2>&1; then
+
+        log_warn \
+            "${MODULE_API_COMPONENT}" \
+            "$*"
+
+    fi
+}
+
+
+
+#
+# Безопасное сообщение об ошибке.
+#
+
+_module_api_log_error()
+{
+    if declare -f log_error >/dev/null 2>&1; then
+
+        log_error \
+            "${MODULE_API_COMPONENT}" \
+            "$*"
+
+    fi
+}
+
+
+
+#
+# Безопасное debug-сообщение.
+#
+
+_module_api_log_debug()
+{
+    if declare -f log_debug >/dev/null 2>&1; then
+
+        log_debug \
+            "${MODULE_API_COMPONENT}" \
+            "$*"
+
+    fi
+}
+
+
+
+# ==============================================================================
+# Список установленных модулей
+# ==============================================================================
+
+#
+# module_api_list_installed
+#
+# Возвращает имена установленных модулей.
+#
+# Основной механизм:
+#
+#   modules_installed_list
+#
+# если он уже предоставлен lib/installer/modules.sh.
+#
+# Fallback:
+#
+#   /var/lib/lsm/modules/*.installed
+#
+# Результат:
+#
+#   disk
+#   docker
+#   raid
+#   smart
+#   ...
 #
 
 module_api_list_installed()
 {
+
+    #
+    # Предпочтительно используем существующий API installer/modules.sh.
+    #
 
     if declare -f modules_installed_list >/dev/null 2>&1; then
 
@@ -138,13 +267,18 @@ module_api_list_installed()
 
 
 
+    #
+    # Fallback.
+    #
+
     [[ -d "${LSM_MODULE_STATE_DIR}" ]] || return 0
 
 
 
     find "${LSM_MODULE_STATE_DIR}" \
-        -name "*.installed" \
+        -maxdepth 1 \
         -type f \
+        -name "*.installed" \
         -printf "%f\n" \
         2>/dev/null \
         | sed 's/\.installed$//' \
@@ -154,8 +288,17 @@ module_api_list_installed()
 
 
 
-#
+# ==============================================================================
 # Проверка существования модуля
+# ==============================================================================
+
+#
+# module_api_exists MODULE
+#
+# Возвращает:
+#
+#   0 - модуль существует
+#   1 - модуль отсутствует
 #
 
 module_api_exists()
@@ -163,7 +306,9 @@ module_api_exists()
     local module="${1:-}"
 
 
-    [[ -n "${module}" ]] || return 1
+
+    _module_api_valid_name "${module}" || return 1
+
 
 
     [[ -d "${LSM_MODULES_DIR}/${module}" ]]
@@ -171,8 +316,14 @@ module_api_exists()
 
 
 
-#
+# ==============================================================================
 # Получение каталога модуля
+# ==============================================================================
+
+#
+# module_api_path MODULE
+#
+# Выводит абсолютный путь к каталогу модуля.
 #
 
 module_api_path()
@@ -180,17 +331,38 @@ module_api_path()
     local module="${1:-}"
 
 
-    module_api_exists "${module}" || return 1
+
+    if ! module_api_exists "${module}"; then
+
+        return 1
+
+    fi
 
 
-    printf "%s\n" \
+
+    printf '%s\n' \
         "${LSM_MODULES_DIR}/${module}"
+
 }
 
 
 
+# ==============================================================================
+# Получение check-скрипта модуля
+# ==============================================================================
+
 #
-# Поиск check-скрипта
+# module_api_get_check_script MODULE
+#
+# Стандартное расположение:
+#
+#   modules/<module>/files/check_<module>.sh
+#
+# Дополнительный поддерживаемый вариант:
+#
+#   modules/<module>/files/check.sh
+#
+# Скрипт должен быть исполняемым.
 #
 
 module_api_get_check_script()
@@ -198,30 +370,35 @@ module_api_get_check_script()
     local module="${1:-}"
 
 
+
     local module_dir
 
-    module_dir="$(module_api_path "${module}")" \
-        || return 1
+
+
+    if ! module_dir="$(module_api_path "${module}")"; then
+
+        return 1
+
+    fi
 
 
 
-    local script
+    local check_script
 
 
 
     #
-    # Новый стандарт:
-    #
-    # modules/name/files/check.sh
+    # Стандартный вариант.
     #
 
-    script="${module_dir}/files/check.sh"
+    check_script="${module_dir}/files/check_${module}.sh"
 
 
 
-    if [[ -x "${script}" ]]; then
+    if [[ -x "${check_script}" ]]; then
 
-        printf "%s\n" "${script}"
+        printf '%s\n' \
+            "${check_script}"
 
         return 0
 
@@ -230,16 +407,18 @@ module_api_get_check_script()
 
 
     #
-    # Совместимость со старой схемой
+    # Fallback для модулей,
+    # использующих общее имя check.sh.
     #
 
-    script="${module_dir}/files/check_${module}.sh"
+    check_script="${module_dir}/files/check.sh"
 
 
 
-    if [[ -x "${script}" ]]; then
+    if [[ -x "${check_script}" ]]; then
 
-        printf "%s\n" "${script}"
+        printf '%s\n' \
+            "${check_script}"
 
         return 0
 
@@ -248,12 +427,29 @@ module_api_get_check_script()
 
 
     return 1
+
 }
 
 
 
+# ==============================================================================
+# Запуск одного модуля
+# ==============================================================================
+
 #
-# Запуск проверки модуля
+# module_api_run MODULE MODE
+#
+# MODULE:
+#
+#   имя установленного/доступного модуля
+#
+# MODE:
+#
+#   status
+#   report
+#   check
+#
+# Возвращает код завершения check-скрипта.
 #
 
 module_api_run()
@@ -263,22 +459,75 @@ module_api_run()
 
 
 
+    #
+    # Проверяем имя модуля до формирования пути.
+    #
+
+    if ! _module_api_valid_name "${module}"; then
+
+        _module_api_log_error \
+            "Недопустимое имя модуля: ${module}"
+
+        return 1
+
+    fi
+
+
+
+    #
+    # Проверяем режим.
+    #
+
+    if ! _module_api_valid_mode "${mode}"; then
+
+        _module_api_log_error \
+            "Недопустимый режим модуля: ${mode}"
+
+        return 1
+
+    fi
+
+
+
+    #
+    # Получаем check-скрипт.
+    #
+
     local script
 
 
 
     if ! script="$(module_api_get_check_script "${module}")"; then
 
+        _module_api_log_error \
+            "Check-скрипт отсутствует: ${module}"
 
-        ui_error \
-            "Модуль ${module}: отсутствует check-скрипт"
-
-
-        return "${MODULE_STATUS_ERROR}"
+        return 1
 
     fi
 
 
+
+    #
+    # Debug не является частью пользовательского отчета.
+    # Это исключительно диагностическое событие API.
+    #
+
+    _module_api_log_debug \
+        "Запуск модуля: ${module}, режим: ${mode}"
+
+
+
+    #
+    # Запускаем check-скрипт.
+    #
+    # Код возврата намеренно передается вызывающему компоненту.
+    #
+    # Именно check-скрипт определяет:
+    #
+    #   0     состояние/операция успешны
+    #   != 0  обнаружена проблема или произошла ошибка
+    #
 
     "${script}" "${mode}"
 
@@ -286,41 +535,92 @@ module_api_run()
 
 
 
+# ==============================================================================
+# Краткий статус
+# ==============================================================================
+
 #
-# Получить статус модуля
+# module_api_status MODULE
 #
 
 module_api_status()
 {
-    module_api_run "$1" "status"
+    local module="${1:-}"
+
+
+
+    module_api_run \
+        "${module}" \
+        "status"
+
 }
 
 
 
+# ==============================================================================
+# Подробный отчет
+# ==============================================================================
+
 #
-# Получить отчет модуля
+# module_api_report MODULE
 #
 
 module_api_report()
 {
-    module_api_run "$1" "report"
+    local module="${1:-}"
+
+
+
+    module_api_run \
+        "${module}" \
+        "report"
+
 }
 
 
 
-#
+# ==============================================================================
 # Машинная проверка
+# ==============================================================================
+
+#
+# module_api_check MODULE
+#
+# Используется для определения,
+# успешно ли прошла проверка модуля.
 #
 
 module_api_check()
 {
-    module_api_run "$1" "check"
+    local module="${1:-}"
+
+
+
+    module_api_run \
+        "${module}" \
+        "check"
+
 }
 
 
 
+# ==============================================================================
+# Отчет по всем установленным модулям
+# ==============================================================================
+
 #
-# Полный отчет всех модулей
+# module_api_report_all
+#
+# Запускает report для каждого установленного модуля.
+#
+# Важно:
+#
+#   Эта функция не занимается форматированием отдельных
+#   результатов проверки.
+#
+#   Формат результата предоставляет сам check_<module>.sh.
+#
+#   module_api отвечает только за последовательный запуск модулей.
 #
 
 module_api_report_all()
@@ -328,30 +628,54 @@ module_api_report_all()
     local module
 
 
-    while read -r module
+
+    while IFS= read -r module
     do
 
         [[ -z "${module}" ]] && continue
 
 
 
-        echo
+        #
+        # Заголовок модуля.
+        #
+        # Если ui_section доступен,
+        # используем централизованный UI.
+        #
+        # Иначе используем простой текстовый fallback.
+        #
 
-        ui_separator
+        if declare -f ui_section >/dev/null 2>&1; then
 
-        ui_section \
-            "Модуль: ${module}"
+            ui_section \
+                "Модуль: ${module^^}"
+
+        else
+
+            printf '\n'
+            printf '%s\n' \
+                '=============================================================================='
+            printf ' МОДУЛЬ: %s\n' \
+                "${module^^}"
+            printf '%s\n' \
+                '=============================================================================='
+
+        fi
 
 
+
+        #
+        # Ошибка одного модуля не должна
+        # останавливать отчет остальных модулей.
+        #
 
         if ! module_api_report "${module}"; then
 
-
-            ui_error \
-                "Модуль ${module} завершил отчет с ошибкой"
-
+            _module_api_log_error \
+                "Ошибка отчета модуля: ${module}"
 
         fi
+
 
 
     done < <(
@@ -362,8 +686,22 @@ module_api_report_all()
 
 
 
+# ==============================================================================
+# Проверка всех установленных модулей
+# ==============================================================================
+
 #
-# Проверка всех модулей
+# module_api_check_all
+#
+# Проверяет все установленные модули.
+#
+# Возвращает:
+#
+#   0 - все проверки успешны
+#   >0 - количество модулей, завершившихся ошибкой
+#
+# Проверка всех модулей продолжается даже после обнаружения
+# первой ошибки.
 #
 
 module_api_check_all()
@@ -374,7 +712,7 @@ module_api_check_all()
 
 
 
-    while read -r module
+    while IFS= read -r module
     do
 
         [[ -z "${module}" ]] && continue
@@ -383,9 +721,10 @@ module_api_check_all()
 
         if ! module_api_check "${module}"; then
 
-            failed=$((failed+1))
+            failed=$((failed + 1))
 
         fi
+
 
 
     done < <(
@@ -395,4 +734,6 @@ module_api_check_all()
 
 
     return "${failed}"
+
 }
+```
