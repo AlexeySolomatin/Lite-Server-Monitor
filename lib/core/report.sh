@@ -8,21 +8,15 @@
 #
 # Назначение:
 #
-#   Формирование человекочитаемого диагностического отчета LSM.
+#   Формирование человекочитаемого системного отчета LSM.
 #
 # Ответственность:
 #
 #   report.sh:
-#       - собирает системные данные;
-#       - форматирует отчет;
-#       - отображает баннер LSM;
-#       - отображает активные состояния;
-#       - вызывает Module API для получения отчетов модулей.
-#
-#   ui.sh:
-#       - баннер;
-#       - заголовки разделов;
-#       - пользовательское форматирование.
+#       - собирает системные показатели;
+#       - отображает активные состояния уведомлений;
+#       - получает отчеты установленных модулей;
+#       - форматирует итоговый отчет.
 #
 #   logging.sh:
 #       - журналирование событий LSM.
@@ -30,13 +24,23 @@
 #   module_api.sh:
 #       - взаимодействие с модулями мониторинга.
 #
-# Структура состояния:
+# ВАЖНО:
 #
-#   /var/lib/lsm/modules/*.installed
-#       Состояние установки модулей.
+#   Файлы:
 #
-#   /var/lib/lsm/state/*
-#       Текущее состояние мониторинга / активные предупреждения.
+#       /var/lib/lsm/state/*.state
+#
+#   являются состоянием системы уведомлений и управляются notify.sh.
+#
+#   Формат state-файла:
+#
+#       <unix_timestamp>|<LEVEL>
+#
+#   Например:
+#
+#       1754395200|CRITICAL
+#
+#   report.sh НЕ изменяет и НЕ удаляет state-файлы.
 #
 # ==============================================================================
 
@@ -64,7 +68,7 @@ readonly REPORT_COMPONENT="REPORT"
 
 
 #
-# Определение корня LSM
+# Корень LSM
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -74,9 +78,17 @@ export LSM_ROOT
 
 
 #
-# Загрузка UI
+# Каталог состояния
 #
-# UI загружается первым, поскольку он также подключает colors.sh.
+# Совпадает с каталогом, который использует notify.sh.
+#
+
+LSM_STATE_DIR="${LSM_STATE_DIR:-/var/lib/lsm/state}"
+
+
+
+#
+# Загрузка UI
 #
 
 if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
@@ -90,8 +102,6 @@ fi
 
 #
 # Загрузка logging
-#
-# logging использует централизованные COLOR_* из colors.sh.
 #
 
 if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
@@ -116,39 +126,49 @@ fi
 
 
 
-#
-# Каталог состояния мониторинга
-#
-# Не путать с:
-#
-#   /var/lib/lsm/modules
-#
-# где хранятся *.installed.
-#
-
-: "${LSM_STATE_DIR:=/var/lib/lsm/state}"
-
-
-
 # ==============================================================================
-# Локальный разделитель отчета
-#
-# Не является частью общего UI API.
-#
-# Общий ui.sh отвечает за:
-#
-#   ui_banner()
-#   ui_section()
-#
-# Форматирование внутреннего отчета остается здесь.
+# Внутренние функции форматирования отчета
 # ==============================================================================
+
+#
+# Для системного отчета намеренно НЕ используется ui_section().
+#
+# Причина:
+#
+# commands/report.sh сначала генерирует отчет через command substitution:
+#
+#     report_content="$(report_generate_full)"
+#
+# В этот момент colors.sh мог быть загружен тогда, когда stdout еще являлся
+# TTY. Поэтому ANSI-коды могли попасть внутрь самого отчета.
+#
+# Отчет должен оставаться чистым текстовым документом:
+#
+#   - пригодным для сохранения;
+#   - пригодным для отправки;
+#   - пригодным для просмотра через cat/less;
+#   - пригодным для автоматической обработки.
+#
+
+report_section()
+{
+    local title="${1:-}"
+
+    printf "\n"
+    printf -- "------------------------------------------------------------------------------\n"
+    printf " %s\n" "${title}"
+    printf -- "------------------------------------------------------------------------------\n"
+}
+
+
+
+#
+# Разделитель отчета
+#
 
 report_separator()
 {
-
-    printf '%s\n' \
-        "======================================================================"
-
+    printf -- "==============================================================================\n"
 }
 
 
@@ -159,7 +179,6 @@ report_separator()
 
 report_get_header()
 {
-
     local hostname_str
     local uptime_str
     local load_avg
@@ -170,17 +189,17 @@ report_get_header()
 
     hostname_str="$(
         hostname -f 2>/dev/null \
-        || hostname 2>/dev/null \
-        || printf '%s' "unknown"
-    )"
+            || hostname 2>/dev/null \
+            || printf '%s\n' "unknown"
+    )
 
 
 
     uptime_str="$(
         uptime -p 2>/dev/null \
-        || uptime 2>/dev/null \
-        || printf '%s' "Н/Д"
-    )"
+            || uptime 2>/dev/null \
+            || printf '%s\n' "Н/Д"
+    )
 
 
 
@@ -204,45 +223,25 @@ report_get_header()
 
 
 
-    #
-    # Используем единый баннер LSM из ui.sh.
-    #
-
-    if declare -f ui_banner >/dev/null 2>&1; then
-
-        ui_banner
-
-    fi
-
-
-
     report_separator
 
 
 
-    printf '%s\n' \
-        "                    ДИАГНОСТИЧЕСКИЙ ОТЧЕТ"
+    cat <<EOF
+ LITE SERVER MONITOR (LSM)
+ Системный диагностический отчет
+
+ Версия LSM       : ${current_ver}
+ Хост             : ${hostname_str}
+ Дата формирования : ${date_str}
+ Время работы     : ${uptime_str}
+ Load Average     : ${load_avg}
+
+EOF
 
 
 
     report_separator
-
-
-
-    printf '\n'
-    printf 'Версия LSM        : %s\n' "${current_ver}"
-    printf 'Хост              : %s\n' "${hostname_str}"
-    printf 'Дата              : %s\n' "${date_str}"
-    printf 'Время работы      : %s\n' "${uptime_str}"
-    printf 'Load Average      : %s\n' "${load_avg}"
-
-
-
-    printf '\n'
-
-    report_separator
-
-    printf '\n'
 
 }
 
@@ -255,40 +254,25 @@ report_get_header()
 report_get_system_metrics()
 {
 
-    if declare -f ui_section >/dev/null 2>&1; then
-
-        ui_section "Использование оперативной памяти"
-
-    else
-
-        printf '\n---> Использование оперативной памяти\n'
-
-    fi
+    report_section \
+        "Использование оперативной памяти"
 
 
 
     if command -v free >/dev/null 2>&1; then
 
-        free -h 2>/dev/null \
-            || printf '%s\n' "Нет данных"
+        free -h 2>/dev/null || printf '%s\n' "Нет данных"
 
     else
 
-        printf '%s\n' "Команда free недоступна"
+        printf '%s\n' "Утилита free недоступна"
 
     fi
 
 
 
-    if declare -f ui_section >/dev/null 2>&1; then
-
-        ui_section "Использование файловых систем"
-
-    else
-
-        printf '\n---> Использование файловых систем\n'
-
-    fi
+    report_section \
+        "Использование файловых систем"
 
 
 
@@ -303,21 +287,14 @@ report_get_system_metrics()
 
     else
 
-        printf '%s\n' "Команда df недоступна"
+        printf '%s\n' "Утилита df недоступна"
 
     fi
 
 
 
-    if declare -f ui_section >/dev/null 2>&1; then
-
-        ui_section "Топ процессов CPU"
-
-    else
-
-        printf '\n---> Топ процессов CPU\n'
-
-    fi
+    report_section \
+        "Топ процессов по CPU"
 
 
 
@@ -331,21 +308,14 @@ report_get_system_metrics()
 
     else
 
-        printf '%s\n' "Команда ps недоступна"
+        printf '%s\n' "Утилита ps недоступна"
 
     fi
 
 
 
-    if declare -f ui_section >/dev/null 2>&1; then
-
-        ui_section "Топ процессов RAM"
-
-    else
-
-        printf '\n---> Топ процессов RAM\n'
-
-    fi
+    report_section \
+        "Топ процессов по RAM"
 
 
 
@@ -359,57 +329,141 @@ report_get_system_metrics()
 
     else
 
-        printf '%s\n' "Команда ps недоступна"
+        printf '%s\n' "Утилита ps недоступна"
 
     fi
-
-
-
-    printf '\n'
 
 }
 
 
 
 # ==============================================================================
-# Активные состояния мониторинга
-#
-# Источник:
-#
-#   /var/lib/lsm/state/*
-#
-# Пустые файлы не считаются активными предупреждениями.
-#
-# Формат строки состояния может быть:
-#
-#   timestamp|message
-#
-# В таком случае в отчет выводится часть после первого "|".
-#
-# Если "|" отсутствует, выводится исходная строка.
+# Преобразование Unix timestamp в человекочитаемую дату
 # ==============================================================================
 
-report_get_active_alerts()
+report_format_timestamp()
 {
+    local timestamp="${1:-}"
 
-    if declare -f ui_section >/dev/null 2>&1; then
 
-        ui_section "Активные предупреждения"
 
-    else
+    if [[ ! "${timestamp}" =~ ^[0-9]+$ ]]; then
 
-        printf '\n---> Активные предупреждения\n'
+        printf '%s\n' "Н/Д"
+
+        return 0
 
     fi
 
 
 
-    if [[ ! -d "${LSM_STATE_DIR}" ]]; then
+    date \
+        -d "@${timestamp}" \
+        '+%Y-%m-%d %H:%M:%S %Z' \
+        2>/dev/null \
+        || printf '%s\n' "Н/Д"
+
+}
+
+
+
+# ==============================================================================
+# Проверка корректности state-файла уведомлений
+# ==============================================================================
+
+report_parse_state_file()
+{
+    local state_file="${1:-}"
+
+    local state_data
+    local timestamp
+    local level
+
+
+
+    [[ -f "${state_file}" ]] || return 1
+
+
+
+    state_data="$(cat "${state_file}" 2>/dev/null || true)"
+
+
+
+    [[ -n "${state_data}" ]] || return 1
+
+
+
+    timestamp="${state_data%%|*}"
+    level="${state_data#*|}"
+
+
+
+    if [[ ! "${timestamp}" =~ ^[0-9]+$ ]]; then
+
+        return 1
+
+    fi
+
+
+
+    case "${level}" in
+
+        WARNING|CRITICAL)
+            ;;
+
+        *)
+            return 1
+            ;;
+
+    esac
+
+
+
+    printf '%s|%s\n' \
+        "${timestamp}" \
+        "${level}"
+
+}
+
+
+
+# ==============================================================================
+# Активные предупреждения
+#
+# ВАЖНО:
+#
+# notify.sh является владельцем state-файлов.
+#
+# report.sh:
+#
+#   - только читает их;
+#   - не изменяет;
+#   - не удаляет;
+#   - не создает.
+#
+# Формат:
+#
+#   /var/lib/lsm/state/<module>.state
+#
+#   <timestamp>|<LEVEL>
+#
+# ==============================================================================
+
+report_get_active_alerts()
+{
+    local state_dir="${LSM_STATE_DIR}"
+
+
+
+    report_section \
+        "Активные предупреждения"
+
+
+
+    if [[ ! -d "${state_dir}" ]]; then
 
         printf '%s\n' \
-            "Все системы работают штатно. Активных предупреждений нет."
-
-        printf '\n'
+            "Каталог состояния уведомлений отсутствует: ${state_dir}"
 
         return 0
 
@@ -418,21 +472,49 @@ report_get_active_alerts()
 
 
     local found=false
-    local file
+    local state_file
     local module
-    local line
-    local content
+    local state_data
+    local timestamp
+    local level
+    local formatted_time
 
 
 
-    while IFS= read -r -d '' file
+    while IFS= read -r state_file
     do
 
+        [[ -z "${state_file}" ]] && continue
+
+
+
         #
-        # Пустые state-файлы не являются активными предупреждениями.
+        # Поврежденный state-файл не должен ломать весь отчет.
         #
 
-        [[ -s "${file}" ]] || continue
+        if ! state_data="$(report_parse_state_file "${state_file}")"; then
+
+            printf "  ! Некорректный state-файл: %s\n" \
+                "${state_file}"
+
+            continue
+
+        fi
+
+
+
+        timestamp="${state_data%%|*}"
+        level="${state_data#*|}"
+
+
+
+        module="$(basename "${state_file}" .state)"
+
+
+
+        formatted_time="$(
+            report_format_timestamp "${timestamp}"
+        )"
 
 
 
@@ -440,58 +522,21 @@ report_get_active_alerts()
 
 
 
-        module="$(basename "${file}")"
-
-
-
-        printf '\n'
-        printf '[ТРЕВОГА] Модуль: %s\n' "${module}"
-
-
-
-        #
-        # Читаем состояние построчно.
-        #
-
-        while IFS= read -r line || [[ -n "${line}" ]]
-        do
-
-            [[ -n "${line}" ]] || continue
-
-
-
-            #
-            # Если используется формат:
-            #
-            # timestamp|message
-            #
-            # показываем только сообщение.
-            #
-
-            if [[ "${line}" == *"|"* ]]; then
-
-                content="${line#*|}"
-
-            else
-
-                content="${line}"
-
-            fi
-
-
-
-            printf '  %s\n' "${content}"
-
-        done < "${file}"
+        printf "\n"
+        printf "  Модуль       : %s\n" "${module}"
+        printf "  Уровень      : %s\n" "${level}"
+        printf "  Обнаружено   : %s\n" "${formatted_time}"
 
 
 
     done < <(
-        find "${LSM_STATE_DIR}" \
+        find "${state_dir}" \
+            -maxdepth 1 \
             -type f \
-            -print0 \
+            -name "*.state" \
+            -print \
             2>/dev/null \
-            | sort -z
+            | sort
     )
 
 
@@ -499,51 +544,38 @@ report_get_active_alerts()
     if [[ "${found}" == "false" ]]; then
 
         printf '%s\n' \
-            "Все системы работают штатно. Активных предупреждений нет."
+            "Активных предупреждений нет."
 
     fi
-
-
-
-    printf '\n'
 
 }
 
 
 
 # ==============================================================================
-# Отчет модулей LSM
+# Отчеты модулей LSM
 # ==============================================================================
 
 report_collect_modules()
 {
 
-    if declare -f ui_section >/dev/null 2>&1; then
-
-        ui_section "Отчеты модулей LSM"
-
-    else
-
-        printf '\n---> Отчеты модулей LSM\n'
-
-    fi
+    report_section \
+        "Отчеты модулей LSM"
 
 
 
-    if declare -f module_api_report_all >/dev/null 2>&1; then
-
-        module_api_report_all
-
-    else
+    if ! declare -f module_api_report_all >/dev/null 2>&1; then
 
         printf '%s\n' \
             "Module API недоступен."
 
+        return 0
+
     fi
 
 
 
-    printf '\n'
+    module_api_report_all
 
 }
 
@@ -555,15 +587,16 @@ report_collect_modules()
 
 report_generate_full()
 {
-
     local current_ver
+
+
 
     current_ver="${PROJECT_VERSION:-${LSM_VERSION:-unknown}}"
 
 
 
     #
-    # Заголовок и единый баннер.
+    # Заголовок
     #
 
     report_get_header
@@ -571,7 +604,7 @@ report_generate_full()
 
 
     #
-    # Общие системные показатели.
+    # Системные показатели
     #
 
     report_get_system_metrics
@@ -579,7 +612,7 @@ report_generate_full()
 
 
     #
-    # Текущее состояние мониторинга.
+    # Активные alert-состояния
     #
 
     report_get_active_alerts
@@ -587,7 +620,7 @@ report_generate_full()
 
 
     #
-    # Подробные отчеты установленных модулей.
+    # Отчеты установленных модулей
     #
 
     report_collect_modules
@@ -595,16 +628,20 @@ report_generate_full()
 
 
     #
-    # Завершение отчета.
+    # Завершение
     #
+
+    printf "\n"
 
     report_separator
 
-    printf '\n'
-    printf 'Отчет сформирован LSM v%s\n' "${current_ver}"
-    printf '\n'
+    printf "\n"
+
+    printf "Отчет сформирован LSM v%s\n" \
+        "${current_ver}"
+
+    printf "\n"
 
     report_separator
 
 }
-
