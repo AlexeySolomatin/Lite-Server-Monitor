@@ -12,7 +12,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 
-ExecStart=/opt/lsm/modules/raid/check_raid.sh
+ExecStart=/opt/lsm/modules/raid/files/check_raid.sh
 
 User=root
 Group=root
