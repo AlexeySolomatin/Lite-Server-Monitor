@@ -12,7 +12,7 @@ After=network-online.target
 [Service]
 Type=oneshot
 
-ExecStart=/opt/lsm/modules/smart/check_smart.sh
+ExecStart=/opt/lsm/modules/smart/files/check_smart.sh
 
 User=root
 Group=root
