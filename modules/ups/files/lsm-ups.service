@@ -12,7 +12,7 @@ Wants=apcupsd.service
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/lsm/modules/ups/check_ups.sh
+ExecStart=/bin/bash /opt/lsm/modules/ups/files/check_ups.sh
 
 User=root
 Group=root
