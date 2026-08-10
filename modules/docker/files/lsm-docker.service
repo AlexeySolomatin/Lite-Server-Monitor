@@ -4,4 +4,4 @@ After=network.target docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/lsm/modules/docker/check_docker.sh
+ExecStart=/opt/lsm/modules/docker/files/check_docker.sh
