@@ -14,7 +14,7 @@ Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 Type=oneshot
 
-ExecStart=/opt/lsm/modules/login/check_login.sh
+ExecStart=/opt/lsm/modules/login/files/check_login.sh
 
 User=root
 Group=root
