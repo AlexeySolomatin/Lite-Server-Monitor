@@ -14,7 +14,7 @@ Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 Type=oneshot
 
-ExecStart=/opt/lsm/modules/fail2ban/check_fail2ban.sh
+ExecStart=/opt/lsm/modules/fail2ban/files/check_fail2ban.sh
 
 User=root
 Group=root
