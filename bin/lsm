@@ -7,34 +7,34 @@
 #   bin/lsm
 #
 # Назначение:
-#   Главная точка входа в командный интерфейс LSM.
+#   Единая командная точка управления LSM.
 #
 # Поддерживаемые команды:
 #
 #   lsm help
 #   lsm version
+#   lsm status
 #   lsm modules
 #   lsm install
 #   lsm uninstall
 #   lsm update
-#   lsm status
 #   lsm doctor
 #   lsm report
 #   lsm config
 #   lsm tui
 #
-# Для команд, требующих административных прав, автоматически
-# выполняется перезапуск через sudo.
 # ==============================================================================
 
+
 set -Eeuo pipefail
+
 
 
 #
 # Минимальный аварийный вывод.
 #
-# Используется до загрузки библиотек LSM, когда функции
-# стандартного логирования еще недоступны.
+# Используется до загрузки библиотек LSM,
+# когда функции логирования ещё недоступны.
 #
 
 bootstrap_error()
@@ -43,14 +43,22 @@ bootstrap_error()
 }
 
 
+
 #
-# Определение корня проекта.
+# Определение корня проекта LSM.
 #
 # Приоритет:
 #
 #   1. Уже установленная переменная LSM_ROOT.
 #   2. Стандартный путь установки /opt/lsm.
 #   3. Каталог проекта относительно текущего файла.
+#
+# ВАЖНО:
+#
+#   LSM_ROOT НЕ объявляется readonly.
+#
+#   Библиотеки LSM подключаются через source и
+#   могут повторно определить эту переменную.
 #
 
 if [[ -n "${LSM_ROOT:-}" ]]; then
@@ -63,13 +71,16 @@ elif [[ -d "/opt/lsm" ]]; then
 
 else
 
-    LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    LSM_ROOT="$(
+        cd "$(dirname "${BASH_SOURCE[0]}")/.." &&
+        pwd
+    )"
 
 fi
 
 
-
 export LSM_ROOT
+
 
 
 #
@@ -78,7 +89,8 @@ export LSM_ROOT
 
 if [[ ! -d "${LSM_ROOT}/commands" ]]; then
 
-    bootstrap_error "Каталог commands не найден."
+    bootstrap_error \
+        "Каталог команд не найден: ${LSM_ROOT}/commands"
 
     printf "LSM_ROOT=%s\n" "${LSM_ROOT}" >&2
 
@@ -87,8 +99,15 @@ if [[ ! -d "${LSM_ROOT}/commands" ]]; then
 fi
 
 
+
 #
-# Загрузка базового окружения и системы логирования.
+# Загрузка базового окружения.
+#
+# common.sh:
+#   системные проверки и общие функции.
+#
+# logging.sh:
+#   централизованное журналирование LSM.
 #
 
 if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
@@ -107,52 +126,64 @@ if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
 fi
 
 
+
 #
-# Автоматическое получение прав root.
+# Проверка необходимости прав root.
 #
-# Если текущий пользователь не root и команда требует
-# административных прав, выполняется повторный запуск
-# этой же команды через sudo.
+# Команды, которые изменяют систему,
+# автоматически перезапускаются через sudo.
 #
 
 ensure_root()
 {
-    if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
 
-        if command -v sudo >/dev/null 2>&1; then
-
-            printf \
-                "\033[1;33m[i] [LSM]\033[0m Для выполнения команды '%s' требуются права root. Перезапуск через sudo...\n" \
-                "${COMMAND}"
-
-            exec sudo -- "$0" "${COMMAND}" "$@"
-
-        else
-
-            if declare -f log_error >/dev/null 2>&1; then
-
-                log_error "CLI" \
-                    "Команда '${COMMAND}' требует прав root, но утилита sudo не найдена."
-
-            else
-
-                bootstrap_error \
-                    "Команда '${COMMAND}' требует прав root, но утилита sudo не найдена."
-
-            fi
-
-            exit 1
-
-        fi
+        return 0
 
     fi
+
+
+    if command -v sudo >/dev/null 2>&1; then
+
+        printf \
+            "\033[1;33m[i] [LSM]\033[0m "
+
+
+        printf \
+            "Для выполнения команды '%s' требуются права root. " \
+            "Перезапуск через sudo...\n" \
+            "${COMMAND}"
+
+
+        exec sudo -- "$0" "${COMMAND}" "$@"
+
+    fi
+
+
+
+    if declare -f log_error >/dev/null 2>&1; then
+
+        log_error \
+            "CLI" \
+            "Команда '${COMMAND}' требует прав root, " \
+            "но утилита sudo не найдена."
+
+    else
+
+        bootstrap_error \
+            "Команда '${COMMAND}' требует прав root, " \
+            "но утилита sudo не найдена."
+
+    fi
+
+
+    exit 1
 }
+
 
 
 #
 # Определение команды.
-#
-# Если команда не указана, используется help.
 #
 
 COMMAND="${1:-help}"
@@ -160,8 +191,9 @@ COMMAND="${1:-help}"
 shift || true
 
 
+
 #
-# Обработка команд CLI.
+# Обработка команд LSM.
 #
 
 case "${COMMAND}" in
@@ -173,33 +205,42 @@ case "${COMMAND}" in
 
     help|-h|--help)
 
-        exec bash "${LSM_ROOT}/commands/help.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/help.sh" \
+            "$@"
 
         ;;
 
 
+
     #
-    # Версия LSM
+    # Версия
     #
 
     version|-v|--version)
 
-        exec bash "${LSM_ROOT}/commands/version.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/version.sh" \
+            "$@"
 
         ;;
 
 
+
     #
-    # Список установленных модулей
+    # Список модулей
     #
 
     modules)
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/modules.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/modules.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -210,9 +251,12 @@ case "${COMMAND}" in
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/install.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/install.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -223,9 +267,12 @@ case "${COMMAND}" in
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/uninstall.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/uninstall.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -236,22 +283,28 @@ case "${COMMAND}" in
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/update.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/update.sh" \
+            "$@"
 
         ;;
 
 
+
     #
-    # Текущее состояние системы
+    # Состояние системы
     #
 
     status)
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/status.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/status.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -262,9 +315,12 @@ case "${COMMAND}" in
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/doctor.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/doctor.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -275,9 +331,12 @@ case "${COMMAND}" in
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/report.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/report.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -288,22 +347,28 @@ case "${COMMAND}" in
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/commands/config.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/commands/config.sh" \
+            "$@"
 
         ;;
 
 
+
     #
-    # Текстовый интерфейс
+    # TUI-интерфейс
     #
 
     tui)
 
         ensure_root
 
-        exec bash "${LSM_ROOT}/lib/tui/tui.sh" "$@"
+        exec bash \
+            "${LSM_ROOT}/lib/tui/tui.sh" \
+            "$@"
 
         ;;
+
 
 
     #
@@ -314,7 +379,8 @@ case "${COMMAND}" in
 
         if declare -f log_error >/dev/null 2>&1; then
 
-            log_error "CLI" \
+            log_error \
+                "CLI" \
                 "Неизвестная команда: ${COMMAND}"
 
         else
@@ -325,7 +391,8 @@ case "${COMMAND}" in
         fi
 
 
-        exec bash "${LSM_ROOT}/commands/help.sh"
+        exec bash \
+            "${LSM_ROOT}/commands/help.sh"
 
         ;;
 
