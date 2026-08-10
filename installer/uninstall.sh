@@ -10,7 +10,6 @@ set -Eeuo pipefail
 # Безопасная инициализация LSM_ROOT (защита от ошибок readonly)
 if [[ -z "${LSM_ROOT:-}" ]]; then
     LSM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    readonly LSM_ROOT
 fi
 
 #
