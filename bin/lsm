@@ -68,7 +68,6 @@ else
 fi
 
 
-readonly LSM_ROOT
 
 export LSM_ROOT
 
