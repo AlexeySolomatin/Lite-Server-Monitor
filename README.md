@@ -274,3 +274,21 @@ lsm version
 Проект находится в активной разработке.
 
 До выхода версии **1.0.0** возможны изменения внутренней архитектуры и процесса установки.
+
+---
+
+# Если uninstall сейчас сломан, делаем ручную очистку:
+
+```
+sudo systemctl stop 'lsm-*' 2>/dev/null || true
+sudo rm -f /etc/systemd/system/lsm-*.service
+sudo rm -f /etc/systemd/system/lsm-*.timer
+sudo systemctl daemon-reload
+sudo rm -rf /opt/lsm
+sudo rm -rf /etc/lsm
+sudo rm -rf /var/log/lsm
+sudo rm -rf /var/lib/lsm
+sudo rm -f /usr/local/bin/lsm
+hash -r
+```
+
