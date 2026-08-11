@@ -242,3 +242,24 @@ deploy_remove_file()
 
     fi
 }
+
+#
+# Удаление директории
+#
+
+deploy_remove_directory()
+{
+    local target_dir="${1:-}"
+
+    [[ -n "${target_dir}" ]] || return 0
+
+    if [[ -d "${target_dir}" ]]; then
+
+        log_info \
+            "${DEPLOY_COMPONENT}" \
+            "Удаление каталога: ${target_dir}"
+
+        rm -rf "${target_dir}"
+
+    fi
+}
