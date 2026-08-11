@@ -1,15 +1,61 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Temperature Module Uninstaller
-# -----------------------------------------------------------------------------
+# Скрипт удаления модуля контроля температуры
+# Путь: modules/temperature/uninstall.sh
+# ==============================================================================
 
 set -Eeuo pipefail
 
-deploy_remove_file /etc/systemd/system/lsm-temperature.service
-deploy_remove_file /etc/systemd/system/lsm-temperature.timer
-deploy_remove_file /etc/lsm/modules/temperature.conf
-deploy_remove_directory /opt/lsm/modules/temperature
+#
+# Корень LSM
+#
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    LSM_ROOT="/opt/lsm"
+fi
+export LSM_ROOT
 
-log_success "Temperature module removed."
+#
+# Базовые библиотеки (согласно UNINSTALL CONTRACT)
+#
+source "${LSM_ROOT}/lib/core/logging.sh"
+source "${LSM_ROOT}/lib/installer/deploy.sh"
+
+readonly MODULE_NAME="temperature"
+readonly LOG_COMPONENT="TEMP"
+
+#
+# 1. Остановка и отключение systemd
+#
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now "lsm-${MODULE_NAME}.timer" 2>/dev/null || true
+    systemctl stop "lsm-${MODULE_NAME}.service" 2>/dev/null || true
+fi
+
+#
+# 2. Удаление unit-файлов systemd
+#
+deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.service"
+deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.timer"
+
+#
+# 3. Перезагрузка конфигурации systemd (ПОСЛЕ удаления файлов unit-ов)
+#
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload 2>/dev/null || true
+fi
+
+#
+# 4. Удаление конфигурационного файла модуля
+#
+deploy_remove_file "/etc/lsm/modules/${MODULE_NAME}.conf"
+
+#
+# 5. Удаление директории модуля
+#
+deploy_remove_directory "${LSM_ROOT}/modules/${MODULE_NAME}"
+
+#
+# 6. Финальный лог
+#
+log_success "${LOG_COMPONENT}" "Модуль контроля температуры успешно удалён."
