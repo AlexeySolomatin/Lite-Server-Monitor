@@ -277,7 +277,7 @@ lsm version
 
 ---
 
-# Если uninstall сейчас сломан, делаем ручную очистку:
+# Если uninstall сломан, делаем ручную очистку:
 
 ```
 sudo systemctl stop 'lsm-*' 2>/dev/null || true
