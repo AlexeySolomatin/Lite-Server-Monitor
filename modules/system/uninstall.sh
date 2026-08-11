@@ -1,27 +1,61 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# System Module Uninstaller
-# -----------------------------------------------------------------------------
+# Скрипт удаления модуля общей проверки системы
+# Путь: modules/system/uninstall.sh
+# ==============================================================================
 
 set -Eeuo pipefail
 
+#
+# Корень LSM
+#
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    LSM_ROOT="/opt/lsm"
+fi
+export LSM_ROOT
 
-deploy_remove_file \
-    /etc/systemd/system/lsm-system.service
+#
+# Базовые библиотеки (согласно UNINSTALL CONTRACT)
+#
+source "${LSM_ROOT}/lib/core/logging.sh"
+source "${LSM_ROOT}/lib/installer/deploy.sh"
 
+readonly MODULE_NAME="system"
+readonly LOG_COMPONENT="SYSTEM"
 
-deploy_remove_file \
-    /etc/systemd/system/lsm-system.timer
+#
+# 1. Остановка и отключение systemd
+#
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now "lsm-${MODULE_NAME}.timer" 2>/dev/null || true
+    systemctl stop "lsm-${MODULE_NAME}.service" 2>/dev/null || true
+fi
 
+#
+# 2. Удаление unit-файлов systemd
+#
+deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.service"
+deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.timer"
 
-deploy_remove_file \
-    /etc/lsm/modules/system.conf
+#
+# 3. Перезагрузка конфигурации systemd (ПОСЛЕ удаления файлов unit-ов)
+#
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload 2>/dev/null || true
+fi
 
+#
+# 4. Удаление конфигурационного файла модуля
+#
+deploy_remove_file "/etc/lsm/modules/${MODULE_NAME}.conf"
 
-deploy_remove_directory \
-    /opt/lsm/modules/system
+#
+# 5. Удаление директории модуля
+#
+deploy_remove_directory "${LSM_ROOT}/modules/${MODULE_NAME}"
 
-
-log_success "System module removed."
+#
+# 6. Финальный лог
+#
+log_success "${LOG_COMPONENT}" "Модуль общей проверки системы успешно удалён."
