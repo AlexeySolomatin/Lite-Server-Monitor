@@ -631,6 +631,20 @@ CLI после установки:
     - библиотеки могут использовать конструкцию ${LSM_ROOT:-...};
     - дочерние скрипты наследуют LSM_ROOT через environment.
 
+--------------------------------------------------
+
+UNINSTALL CONTRACT:
+
+- installer/uninstall.sh loads installer libraries for orchestration.
+- modules/*/uninstall.sh are executed in separate Bash processes.
+- Every module uninstall script MUST load its own required libraries.
+- deploy.sh provides:
+  - deploy_create_directory
+  - deploy_install_file
+  - deploy_create_symlink
+  - deploy_remove_file
+  - deploy_remove_directory
+
 ----------------------------------------------------------
 ### 13. CONFIGURATION
 ----------------------------------------------------------
