@@ -7,77 +7,58 @@
 
 set -Eeuo pipefail
 
-MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
-
-# Подключение базовых библиотек
-if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/common.sh"
+#
+# Корень LSM
+#
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    LSM_ROOT="/opt/lsm"
 fi
+export LSM_ROOT
 
-if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/ui.sh"
-fi
+#
+# Обязательные базовые библиотеки (согласно UNINSTALL CONTRACT)
+#
+source "${LSM_ROOT}/lib/core/logging.sh"
+source "${LSM_ROOT}/lib/installer/deploy.sh"
 
-if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/installer/deploy.sh"
-fi
+readonly MODULE_NAME="docker"
+readonly LOG_COMPONENT="DOCKER"
 
-if [[ -f "${LSM_ROOT}/lib/installer/services.sh" ]]; then
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/installer/services.sh"
-fi
-
-if declare -f log_info >/dev/null 2>&1; then
-    log_info "UNINSTALL" "Удаление модуля мониторинга Docker..."
-else
-    echo "Удаление модуля мониторинга Docker..."
-fi
-
-# 1. Остановка и отключение служб systemd
+#
+# 1. Остановка и отключение systemd
+#
 if command -v systemctl >/dev/null 2>&1; then
-    if declare -f services_stop_and_disable >/dev/null 2>&1; then
-        services_stop_and_disable "lsm-docker.timer" || true
-        services_stop_and_disable "lsm-docker.service" || true
-    else
-        systemctl stop lsm-docker.timer lsm-docker.service 2>/dev/null || true
-        systemctl disable lsm-docker.timer lsm-docker.service 2>/dev/null || true
-    fi
+    # Сначала останавливаем и отключаем таймер (избегаем warning от systemd)
+    systemctl disable --now "lsm-${MODULE_NAME}.timer" 2>/dev/null || true
+
+    # останавливаем службу, если она выполнялась в данный момент
+    systemctl stop "lsm-${MODULE_NAME}.service" 2>/dev/null || true
 fi
 
-# 2. Удаление юнитов Systemd
-if declare -f deploy_remove_file >/dev/null 2>&1; then
-    deploy_remove_file "/etc/systemd/system/lsm-docker.service"
-    deploy_remove_file "/etc/systemd/system/lsm-docker.timer"
-else
-    rm -f "/etc/systemd/system/lsm-docker.service"
-    rm -f "/etc/systemd/system/lsm-docker.timer"
-fi
+#
+# 2. Удаление unit-файлов systemd
+#
+deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.service"
+deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.timer"
 
-# Перезагрузка конфигурации systemd
+#
+# 3. Перезагрузка конфигурации systemd (строго ПОСЛЕ удаления файлов unit-ов)
+#
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload || true
+    systemctl daemon-reload 2>/dev/null || true
 fi
 
-# 3. Удаление конфигурационного файла модуля
-if declare -f deploy_remove_file >/dev/null 2>&1; then
-    deploy_remove_file "/etc/lsm/modules/docker.conf"
-else
-    rm -f "/etc/lsm/modules/docker.conf"
-fi
+#
+# 4. Удаление конфигурационного файла модуля
+#
+deploy_remove_file "/etc/lsm/modules/${MODULE_NAME}.conf"
 
-# 4. Удаление рабочей директории модуля
-if declare -f deploy_remove_directory >/dev/null 2>&1; then
-    deploy_remove_directory "${LSM_ROOT}/modules/docker"
-else
-    rm -rf "${LSM_ROOT}/modules/docker"
-fi
+#
+# 5. Удаление директории модуля
+#
+deploy_remove_directory "${LSM_ROOT}/modules/${MODULE_NAME}"
 
-if declare -f log_success >/dev/null 2>&1; then
-    log_success "UNINSTALL" "Модуль мониторинга Docker успешно удалён."
-else
-    echo "Модуль мониторинга Docker успешно удалён."
-fi
+#
+# 6. Финальный лог
+#
+log_success "${LOG_COMPONENT}" "Модуль мониторинга Docker успешно удалён."
