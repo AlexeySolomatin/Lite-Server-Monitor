@@ -1,51 +1,90 @@
 #!/usr/bin/env bash
+
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Скрипт удаления системных юнитов ежедневных отчетов (Модуль Core)
+# Удаление системных юнитов ежедневных отчетов (Модуль Core)
 # Путь: modules/core/uninstall.sh
 # ==============================================================================
 
 set -Eeuo pipefail
 
-LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
-SYSTEMD_DIR="/etc/systemd/system"
+#
+# Корень LSM
+#
 
-# Подключение базовых библиотек, если доступны
-if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/common.sh"
+if [[ -z "${LSM_ROOT:-}" ]]; then
+    LSM_ROOT="/opt/lsm"
 fi
 
-if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then
-    # shellcheck source=/dev/null
-    source "${LSM_ROOT}/lib/core/ui.sh"
-fi
+export LSM_ROOT
 
-if declare -f log_info >/dev/null 2>&1; then
-    log_info "UNINSTALL" "Остановка и удаление системных юнитов отчетов LSM..."
-else
-    echo "Остановка и удаление системных юнитов отчетов LSM..."
-fi
+readonly MODULE_NAME="core"
+readonly LOG_COMPONENT="CORE"
 
-# 1. Остановка и отключение таймера/сервиса systemd
+#
+# Базовые библиотеки
+#
+
+source "${LSM_ROOT}/lib/core/logging.sh"
+source "${LSM_ROOT}/lib/installer/deploy.sh"
+
+#
+# Пути systemd
+#
+
+readonly SYSTEMD_DIR="/etc/systemd/system"
+
+#
+# Удаление системных юнитов отчетов LSM
+#
+
+log_info \
+    "${LOG_COMPONENT}" \
+    "Остановка и удаление системных юнитов отчетов LSM..."
+
+#
+# 1. Остановка и отключение таймера
+#
+
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl stop lsm-report.timer 2>/dev/null || true
-    systemctl disable lsm-report.timer 2>/dev/null || true
+
+    systemctl disable --now lsm-report.timer 2>/dev/null || true
+
+    #
+    # На случай, если сервис выполняется непосредственно сейчас
+    #
+
     systemctl stop lsm-report.service 2>/dev/null || true
+
 fi
 
+#
 # 2. Удаление файлов юнитов
-rm -f "${SYSTEMD_DIR}/lsm-report.service"
-rm -f "${SYSTEMD_DIR}/lsm-report.timer"
+#
 
+deploy_remove_file \
+    "${SYSTEMD_DIR}/lsm-report.service"
+
+deploy_remove_file \
+    "${SYSTEMD_DIR}/lsm-report.timer"
+
+#
 # 3. Перезагрузка конфигурации systemd
+#
+# Выполняется только после удаления файлов unit-ов.
+#
+
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload || true
+
+    systemctl daemon-reload 2>/dev/null || true
     systemctl reset-failed 2>/dev/null || true
+
 fi
 
-if declare -f log_success >/dev/null 2>&1; then
-    log_success "UNINSTALL" "Юниты lsm-report успешно удалены."
-else
-    echo "Юниты lsm-report успешно удалены."
-fi
+#
+# 4. Итог
+#
+
+log_success \
+    "${LOG_COMPONENT}" \
+    "Юниты lsm-report успешно удалены."
