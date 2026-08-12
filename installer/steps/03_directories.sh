@@ -184,21 +184,7 @@ step_directories()
         -name "*.sh" \
         -exec chmod +x {} + \
         2>/dev/null || true
-
-
-
-    #
-    # Системный симлинк для CLI (исправляет ошибку на шаге 08_finish)
-    #
-
-    if [[ -f "${target_dir}/bin/lsm" ]]; then
-
-        log_info "${DIRECTORIES_COMPONENT}" \
-            "Создание символической ссылки /usr/local/bin/lsm"
-
-        ln -sf "${target_dir}/bin/lsm" /usr/local/bin/lsm
-
-    fi
+   
 
 
 
