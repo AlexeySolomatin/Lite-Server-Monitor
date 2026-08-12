@@ -77,7 +77,7 @@ step_permissions()
 
 
     #
-    # Исполняемые файлы и системный симлинк
+    # Исполняемые файлы
     #
     local lsm_root="${LSM_ROOT:-/opt/lsm}"
 
@@ -87,12 +87,7 @@ step_permissions()
 
         chmod +x \
             "${lsm_root}/bin/lsm" \
-            2>/dev/null || true
-
-        # Создаем символическую ссылку в системный PATH
-        if [[ -f "${lsm_root}/bin/lsm" ]]; then
-            ln -sf "${lsm_root}/bin/lsm" /usr/local/bin/lsm
-        fi
+            2>/dev/null || true        
 
         if [[ -d "${lsm_root}/modules" ]]; then
             find "${lsm_root}/modules" \
