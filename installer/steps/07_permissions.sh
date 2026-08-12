@@ -79,7 +79,7 @@ step_permissions()
     #
     # Исполняемые файлы
     #
-    local lsm_root="${LSM_ROOT:-/opt/lsm}"
+    local lsm_root="${LSM_INSTALL_DIR:-/opt/lsm}"
 
     if [[ -d "${lsm_root}" ]]; then
         log_info "${PERMISSIONS_STEP_COMPONENT}" \
