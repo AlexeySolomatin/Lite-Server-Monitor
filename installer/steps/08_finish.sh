@@ -39,36 +39,36 @@ step_finish()
     local errors=0
     local cli_path
     local expected_cli="${LSM_INSTALL_DIR}/bin/lsm"
-
+    
     #
-    # Проверка системной команды LSM
+    # Проверка исполняемого файла CLI
     #
-
+    
+    if [[ ! -x "${expected_cli}" ]]; then
+    
+        log_error "${FINISH_COMPONENT}" \
+            "CLI executable missing or not executable: ${expected_cli}"
+    
+        errors=$((errors + 1))
+    
+    fi
+    
+    #
+    # Проверка системной ссылки CLI
+    #
+    
     cli_path="$(readlink -f "/usr/local/bin/lsm" 2>/dev/null || true)"
-
+    
     if [[ "${cli_path}" != "${expected_cli}" ]]; then
-
+    
         log_error "${FINISH_COMPONENT}" \
             "CLI command points to an invalid location: ${cli_path}"
-
+    
         log_error "${FINISH_COMPONENT}" \
             "Expected location: ${expected_cli}"
-
+    
         errors=$((errors + 1))
-
-    fi
-
-    #
-    # Проверка конфигурации
-    #
-
-    if [[ ! -d "/etc/lsm" ]]; then
-
-        log_error "${FINISH_COMPONENT}" \
-            "Configuration directory missing."
-
-        errors=$((errors + 1))
-
+    
     fi
 
     #
