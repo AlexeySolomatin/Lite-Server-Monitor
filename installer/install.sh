@@ -64,6 +64,13 @@ export LSM_ROOT
 
 export INSTALLER_DIR
 
+#
+# Постоянный каталог установки LSM.
+#
+LSM_INSTALL_DIR="${LSM_INSTALL_DIR:-/opt/lsm}"
+
+export LSM_INSTALL_DIR
+
 
 
 #
