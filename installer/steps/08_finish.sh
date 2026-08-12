@@ -49,13 +49,15 @@ step_finish()
 
 
 
-    if [[ ! -x "/usr/local/bin/lsm" ]]; then
+    local cli_path
 
+    cli_path="$(readlink -f "/usr/local/bin/lsm" 2>/dev/null || true)"
+
+    if [[ "${cli_path}" != "/opt/lsm/bin/lsm" ]]; then
         log_error "${FINISH_COMPONENT}" \
-            "CLI command /usr/local/bin/lsm not found."
+            "CLI command points to an invalid location: ${cli_path}"
 
         errors=$((errors + 1))
-
     fi
 
 
