@@ -518,15 +518,12 @@ done
 #
 # Создание CLI-команды LSM.
 #
-# После установки пользователь сможет выполнять:
-#
-#   lsm help
-#
-# из любого каталога.
+# CLI всегда должен указывать на установленную
+# копию LSM, а не на временный каталог bootstrap.
 #
 
 deploy_create_symlink \
-    "${LSM_ROOT}/bin/lsm" \
+    "/opt/lsm/bin/lsm" \
     "/usr/local/bin/lsm"
 
 
