@@ -518,18 +518,14 @@ done
 #
 # Создание CLI-команды LSM.
 #
-# Важно:
-# LSM_ROOT во время bootstrap указывает на временный
-# каталог исходного кода.
-#
-# Для системного CLI всегда используем постоянный
-# каталог установки.
+# Используем постоянный каталог установки,
+# а не временный LSM_ROOT bootstrap.
 #
 
-local_install_dir="${LSM_INSTALL_DIR:-/opt/lsm}"
+LSM_INSTALL_DIR="${LSM_INSTALL_DIR:-/opt/lsm}"
 
 deploy_create_symlink \
-    "${local_install_dir}/bin/lsm" \
+    "${LSM_INSTALL_DIR:-/opt/lsm}/bin/lsm" \
     "/usr/local/bin/lsm"
 
 
