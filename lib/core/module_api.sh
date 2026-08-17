@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
@@ -736,4 +735,3 @@ module_api_check_all()
     return "${failed}"
 
 }
-```
