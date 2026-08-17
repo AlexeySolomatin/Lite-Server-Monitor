@@ -292,3 +292,38 @@ sudo rm -f /usr/local/bin/lsm
 hash -r
 ```
 
+# Проверка файлов LSM на наличие ограждений
+
+Выполнить:
+
+```bash
+cd /opt/lsm
+
+echo "===== ПОИСК MARKDOWN-ОГРАЖДЕНИЙ ====="
+
+grep -RIn \
+    --binary-files=without-match \
+    --exclude-dir=.git \
+    '```' \
+    . 2>/dev/null || true
+```
+
+Если всё чисто, после строки:
+
+```text
+===== ПОИСК MARKDOWN-ОГРАЖДЕНИЙ =====
+```
+
+# Отдельно проверка именно ```bash
+
+```bash
+cd /opt/lsm
+
+echo "===== ПОИСК \`\`\`bash ====="
+
+grep -RIn \
+    --binary-files=without-match \
+    --exclude-dir=.git \
+    '```bash' \
+    . 2>/dev/null || true
+```
