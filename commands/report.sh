@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
@@ -336,4 +335,3 @@ if [[ "${SAVE_REPORT}" == "false" &&
     printf '%s\n' "${report_content}"
 
 fi
-```
