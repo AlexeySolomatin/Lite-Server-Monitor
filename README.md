@@ -289,33 +289,5 @@ sudo systemctl stop 'lsm-*' 2>/dev/null || true; sudo rm -f /etc/systemd/system/
 Выполнить:
 
 ```bash
-cd /opt/lsm
-
-echo "===== ПОИСК MARKDOWN-ОГРАЖДЕНИЙ ====="
-
-grep -RIn \
-    --binary-files=without-match \
-    --exclude-dir=.git \
-    '```' \
-    . 2>/dev/null || true
-```
-
-Если всё чисто, после строки:
-
-```text
-===== ПОИСК MARKDOWN-ОГРАЖДЕНИЙ =====
-```
-
-# Отдельно проверка именно ```bash
-
-```bash
-cd /opt/lsm
-
-echo "===== ПОИСК \`\`\`bash ====="
-
-grep -RIn \
-    --binary-files=without-match \
-    --exclude-dir=.git \
-    '```bash' \
-    . 2>/dev/null || true
+cd /opt/lsm && grep -RIl --include="*.sh" --exclude-dir=.git '```' . 2>/dev/null || true
 ```
