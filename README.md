@@ -280,16 +280,8 @@ lsm version
 # Если uninstall сломан, делаем ручную очистку:
 
 ```
-sudo systemctl stop 'lsm-*' 2>/dev/null || true
-sudo rm -f /etc/systemd/system/lsm-*.service
-sudo rm -f /etc/systemd/system/lsm-*.timer
-sudo systemctl daemon-reload
-sudo rm -rf /opt/lsm
-sudo rm -rf /etc/lsm
-sudo rm -rf /var/log/lsm
-sudo rm -rf /var/lib/lsm
-sudo rm -f /usr/local/bin/lsm
-hash -r
+sudo systemctl stop 'lsm-*' 2>/dev/null || true; sudo rm -f /etc/systemd/system/lsm-*.{service,timer} && sudo systemctl daemon-reload && sudo rm -rf /opt/lsm /etc/lsm /var/log/lsm /var/lib/lsm /usr/local/bin/lsm && hash -r
+
 ```
 
 # Проверка файлов LSM на наличие ограждений
