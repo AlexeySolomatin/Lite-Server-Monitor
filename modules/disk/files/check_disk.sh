@@ -331,13 +331,24 @@ disk_collect_filesystems()
             gsub(/%/, "", usage)
 
             #
-            # Пропуск виртуальных / псевдо-ФС.
+            # Пропуск виртуальных точек монтирования.
+            #
+            # Защита по пути отсекает любые псевдо-ФС
+            # (/sys/firmware/efi/efivars и подобные),
+            # независимо от имени типа файловой системы.
+            #
+            if (mount_point ~ /^\/(proc|sys|dev|run)(\/|$)/) {
+                next
+            }
+
+            #
+            # Пропуск виртуальных типов файловых систем.
             #
             # ВАЖНО: mawk (awk по умолчанию в Ubuntu) не допускает
             # перевод строки сразу после "if (" — условие держим
             # на одной строке.
             #
-            if (filesystem ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|cgroup|cgroup2|pstore|bpf|debugfs|tracefs|securityfs|configfs|fusectl|mqueue|hugetlbfs|autofs|binfmt_misc|ramfs|overlay|squashfs|nsfs)/) {
+            if (filesystem ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|cgroup|cgroup2|pstore|bpf|debugfs|tracefs|securityfs|configfs|fusectl|mqueue|hugetlbfs|autofs|binfmt_misc|ramfs|overlay|squashfs|nsfs|efivarfs)/) {
                 next
             }
 
