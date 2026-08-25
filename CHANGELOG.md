@@ -5,6 +5,76 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/), 
 и проект придерживается [Семантического Интегрирования (SemVer)](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-25
+
+Волна стабилизации: полный аудит проекта, ремонт всех модулей,
+живая валидация на реальном сервере Ubuntu и переработка механизма
+обновления.
+
+### Added
+
+- **Интерактивный чек-лист выбора модулей** (`wizard_checklist`):
+  переключение `[ ]` / `[X]` цифрами, подтверждение по `0`,
+  баннер LSM на каждом кадре, graceful EOF, предвыборка по
+  `MODULE_DEFAULT` из манифестов.
+- **Тихое обновление**: `lsm update` больше не запускает интерактивный
+  установщик — скачивает код из репозитория и применяет его в режиме
+  `--update`: состав модулей сохраняется из state-маркеров,
+  конфигурация `/etc/lsm` не перезаписывается.
+- **Module API**: `module_api_is_system()` — различение системных
+  модулей (`MODULE_CATEGORY="system"`, например core) от
+  мониторинговых; doctor проверяет их по специальному контракту.
+- **Notification API**: `notify_info()` (информационные сообщения без
+  alert-семантики) и `notify_raw()` (доставка в обход throttling,
+  используется ежедневным отчетом).
+- Документ `docs/AUDIT_AND_ROADMAP.md`: итоги полного аудита и план
+  развития; `docs/INSTALLATION_LAYOUT.md` написан заново.
+
+### Changed
+
+- Все check-скрипты приведены к контракту Module API:
+  режимы `status | report | check`, коды выхода 0=OK / 1=WARNING /
+  2=CRITICAL.
+- Таймеры модулей переведены с монотонных `OnBootSec/OnUnitActiveSec`
+  на календарные `OnCalendar` + `Persistent=true` (устойчивость к
+  простою и daemon-reload поверх активных таймеров).
+- Русифицированы все сообщения и комментарии; шапки всех скриптов
+  унифицированы по эталону `installer/install.sh`; README каждого
+  модуля переписан по единому шаблону.
+- Уведомления Telegram/Email читают единый конфиг
+  (`config.conf` + `secrets.conf`); email отправляется через msmtp
+  с SMTP-параметрами мастера, fallback mail/mailx.
+- Шаблоны `templates/config.conf` и `templates/secrets.conf`
+  актуализированы; устаревшие `notifications/modules/thresholds.conf`
+  удалены.
+
+### Fixed
+
+Критические дефекты, обнаруженные аудитом и живой эксплуатацией:
+
+- disk: неверная глубина `PROJECT_ROOT` — уведомления не работали;
+  efivarfs и псевдо-ФС `/sys|/proc|/dev|/run` исключены из проверки;
+  `printf '---'` трактовал дефисы как опции.
+- smart: вызов несуществующей `notify_send`, потеря кода выхода
+  `smartctl` под `set -e`, отсутствие проверок зависимостей.
+- login: несуществующий уровень INFO ломал throttle-state;
+  дедупликация теряла события (заменена хэшами всех событий окна).
+- docker/fail2ban/system/temperature/ups/raid: отсутствовали режимы
+  status/report/check; реализованы «мертвые» опции конфигураций
+  (MONITOR_JAILS, REPORT_TEMPERATURE, RUNTIME_WARNING, NOTIFY_ON_*).
+- logging: строковый `LOG_LEVEL="INFO"` из config.conf ронял
+  арифметику фильтра ("INFO: unbound variable").
+- report: дубль `readonly REPORT_COMPONENT` (lsm report падал всегда);
+  `uptime_str: unbound variable` под set -u.
+- wizard: `unbound variable` в вводе без дефолта; рассинхрон имен
+  секретов TG_* <-> TELEGRAM_* делал уведомления неработоспособными.
+- installer: самокопирование manifest.conf роняло установку модуля
+  disk; дубли логов этапа модулей; перезапись пользовательского
+  config.conf при повторной установке.
+- CLI: упразднен нерабочий `tui`; `modules enable/disable` переведены
+  на systemd-таймеры; `modules available` ссылалась на несуществующую
+  функцию; `config help` требовал установленную систему.
+
 ## [0.1.3-alpha] - 2026-07-23
 
 ### Added
