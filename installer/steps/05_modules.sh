@@ -216,26 +216,19 @@ step_modules()
 
 
 
-        log_info "${MODULES_STEP_COMPONENT}" \
-            "Установка модуля: ${module}"
-
-
+        #
+        # Установка.
+        #
+        # modules_install() самостоятельно журналирует
+        # начало установки, успех и ошибку,
+        # поэтому здесь сообщения не дублируются.
+        #
 
         if ! modules_install "${module}"; then
-
-
-            log_error "${MODULES_STEP_COMPONENT}" \
-                "Ошибка установки модуля: ${module}"
-
 
             return 1
 
         fi
-
-
-
-        log_success "${MODULES_STEP_COMPONENT}" \
-            "Модуль установлен: ${module}"
 
 
     done

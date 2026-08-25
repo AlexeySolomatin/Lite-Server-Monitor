@@ -38,14 +38,10 @@ log_info "DISK" "Установка модуля мониторинга диск
 # 1. Создание директории конфигурации
 deploy_create_directory "/etc/lsm/modules" "755" "root" "root"
 
-# 2. Манифест модуля
-#    Исполняемый файл уже развернут в /opt/lsm/modules/disk/files/check_disk.sh
-if [[ -f "${MODULE_DIR}/manifest.conf" ]]; then
-    deploy_install_file \
-        "${MODULE_DIR}/manifest.conf" \
-        "${LSM_ROOT}/modules/disk/manifest.conf" \
-        "644" "root" "root"
-fi
+# 2. Манифест модуля.
+#    Отдельное копирование манифеста не требуется:
+#    полный инсталлятор развертывает все дерево проекта в /opt/lsm,
+#    включая modules/disk/manifest.conf.
 
 # 3. Установка юнитов systemd
 if [[ -f "${MODULE_DIR}/files/lsm-disk.service" ]]; then

@@ -128,6 +128,26 @@ deploy_install_file()
 
 
 
+    #
+    # Защита от копирования файла самого в себя.
+    #
+    # При установке из дерева исходников (bootstrap) источник
+    # и цель могут совпадать; cp в этом случае завершается ошибкой
+    # и под set -e прерывает установку модуля.
+    #
+
+    if [[ "${source_file}" -ef "${target_file}" ]]; then
+
+        log_info \
+            "${DEPLOY_COMPONENT}" \
+            "Источник совпадает с целью, пропускаю: ${target_file}"
+
+        return 0
+
+    fi
+
+
+
     log_info \
         "${DEPLOY_COMPONENT}" \
         "Установка файла: ${target_file}"
