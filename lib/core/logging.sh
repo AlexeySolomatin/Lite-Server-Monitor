@@ -354,7 +354,41 @@ _log_write()
     # DEBUG скрывается.
     #
 
-    if (( LOG_LEVEL < level )); then
+    #
+    # Нормализация уровня фильтрации.
+    #
+    # LOG_LEVEL может прийти строкой из конфигурации
+    # (/etc/lsm/config.conf допускает LOG_LEVEL="INFO").
+    # Арифметика Bash в этом случае попыталась бы разрешить
+    # имя "INFO" как переменную. Приводим к числу явно.
+    #
+
+    local filter_level="${LOG_LEVEL:-2}"
+
+    case "${filter_level}" in
+
+        ERROR)      filter_level=0 ;;
+        FAIL)       filter_level=1 ;;
+        WARN|WARNING) filter_level=1 ;;
+        SUCCESS)    filter_level=2 ;;
+        INFO)       filter_level=2 ;;
+        DEBUG)      filter_level=3 ;;
+
+        *)
+
+            if [[ ! "${filter_level}" =~ ^[0-9]+$ ]]; then
+
+                filter_level=2
+
+            fi
+
+            ;;
+
+    esac
+
+
+
+    if (( filter_level < level )); then
 
         return 0
 

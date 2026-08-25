@@ -101,10 +101,12 @@ done
 
 
 #
-# Компонент логирования
+# Компонент логирования.
 #
-
-readonly REPORT_COMPONENT="REPORT"
+# Используется REPORT_COMPONENT из lib/core/report.sh:
+# объявление здесь второй раз упало бы по "readonly variable",
+# так как библиотека уже подключена выше.
+#
 
 
 

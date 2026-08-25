@@ -333,19 +333,18 @@ disk_collect_filesystems()
             #
             # Пропуск виртуальных / псевдо-ФС.
             #
-            if (
-                filesystem ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|cgroup|cgroup2|pstore|bpf|debugfs|tracefs|securityfs|configfs|fusectl|mqueue|hugetlbfs|autofs|binfmt_misc|ramfs|overlay|squashfs|nsfs)/
-            ) {
+            # ВАЖНО: mawk (awk по умолчанию в Ubuntu) не допускает
+            # перевод строки сразу после "if (" — условие держим
+            # на одной строке.
+            #
+            if (filesystem ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|cgroup|cgroup2|pstore|bpf|debugfs|tracefs|securityfs|configfs|fusectl|mqueue|hugetlbfs|autofs|binfmt_misc|ramfs|overlay|squashfs|nsfs)/) {
                 next
             }
 
             #
             # Пропуск loop / cdrom устройств.
             #
-            if (
-                filesystem ~ /^\/dev\/loop/ ||
-                filesystem ~ /^\/dev\/sr/
-            ) {
+            if (filesystem ~ /^\/dev\/loop/ || filesystem ~ /^\/dev\/sr/) {
                 next
             }
 
