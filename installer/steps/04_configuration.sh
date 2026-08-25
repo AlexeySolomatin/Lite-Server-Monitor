@@ -201,44 +201,53 @@ EOF
 
 
     #
-    # Каналы уведомлений
+    # Каналы уведомлений.
+    #
+    # Записываются только если мастер передал NOTIFICATION_METHOD.
+    # В режиме обновления (lsm update) переменная пуста —
+    # существующие значения TELEGRAM_ENABLED / EMAIL_ENABLED
+    # в config.conf сохраняются.
     #
 
-    case "${NOTIFICATION_METHOD:-none}" in
+    if [[ -n "${NOTIFICATION_METHOD:-}" ]]; then
+
+        case "${NOTIFICATION_METHOD}" in
 
 
-        telegram)
+            telegram)
 
-            config_set TELEGRAM_ENABLED true
-            config_set EMAIL_ENABLED false
+                config_set TELEGRAM_ENABLED true
+                config_set EMAIL_ENABLED false
 
-            ;;
-
-
-        email)
-
-            config_set TELEGRAM_ENABLED false
-            config_set EMAIL_ENABLED true
-
-            ;;
+                ;;
 
 
-        both)
+            email)
 
-            config_set TELEGRAM_ENABLED true
-            config_set EMAIL_ENABLED true
+                config_set TELEGRAM_ENABLED false
+                config_set EMAIL_ENABLED true
 
-            ;;
+                ;;
 
 
-        *)
+            both)
 
-            config_set TELEGRAM_ENABLED false
-            config_set EMAIL_ENABLED false
+                config_set TELEGRAM_ENABLED true
+                config_set EMAIL_ENABLED true
 
-            ;;
+                ;;
 
-    esac
+
+            *)
+
+                config_set TELEGRAM_ENABLED false
+                config_set EMAIL_ENABLED false
+
+                ;;
+
+        esac
+
+    fi
 
 
 
@@ -306,9 +315,20 @@ EOF
     # UPS
     #
 
-    config_set UPS_ENABLED "${INSTALL_UPS:-false}"
+    #
+    # UPS.
+    #
+    # Записывается только если мастер передал INSTALL_UPS
+    # (в режиме обновления существующие значения сохраняются).
+    #
 
-    config_set UPS_PROFILE "${UPS_PROFILE:-}"
+    if [[ -n "${INSTALL_UPS:-}" ]]; then
+
+        config_set UPS_ENABLED "${INSTALL_UPS}"
+
+        config_set UPS_PROFILE "${UPS_PROFILE:-}"
+
+    fi
 
 
 
@@ -316,12 +336,16 @@ EOF
     # Ежедневный отчет
     #
 
-    config_set DAILY_REPORT_ENABLED \
-        "${DAILY_REPORT_ENABLED:-false}"
+    if [[ -n "${DAILY_REPORT_ENABLED:-}" ]]; then
+
+        config_set DAILY_REPORT_ENABLED \
+            "${DAILY_REPORT_ENABLED}"
 
 
-    config_set DAILY_REPORT_TIME \
-        "${DAILY_REPORT_TIME:-09:00}"
+        config_set DAILY_REPORT_TIME \
+            "${DAILY_REPORT_TIME:-09:00}"
+
+    fi
 
 
 

@@ -256,17 +256,35 @@ fi
 
 NON_INTERACTIVE=false
 
+UPDATE_MODE=false
 
 
-if [[ "${1:-}" == "--quiet" ]] || \
-   [[ "${1:-}" == "--non-interactive" ]] || \
-   [[ "${1:-}" == "-y" ]]; then
 
+for _arg in "$@"
+do
 
-    NON_INTERACTIVE=true
+    case "${_arg}" in
 
+        --quiet|-y|--non-interactive)
+            NON_INTERACTIVE=true
+            ;;
 
-fi
+        #
+        # Режим обновления:
+        # без вопросов, с сохранением текущих модулей
+        # и конфигурации.
+        #
+
+        --update)
+            NON_INTERACTIVE=true
+            UPDATE_MODE=true
+            ;;
+
+    esac
+
+done
+
+export LSM_UPDATE_MODE="${UPDATE_MODE}"
 
 
 
@@ -330,53 +348,122 @@ else
 
 
 
-    log_info "${INSTALL_COMPONENT}" \
-        "Запуск автоматической установки."
+    if [[ "${UPDATE_MODE}" == "true" ]]; then
+
+
+        #
+        # РЕЖИМ ОБНОВЛЕНИЯ.
+        #
+        # Никаких вопросов: набор модулей берется из состояния
+        # установленной системы (/var/lib/lsm/modules/*.installed),
+        # конфигурация в /etc/lsm сохраняется (этап 04 в режиме
+        # обновления не перетирает существующие значения).
+        #
+
+        log_info "${INSTALL_COMPONENT}" \
+            "Режим обновления: настройки и состав модулей сохраняются."
+
+
+        declare -a SELECTED_MODULES=()
+
+
+        _marker=""
+        _mname=""
+
+
+        if [[ -d "/var/lib/lsm/modules" ]]; then
+
+            while IFS= read -r _marker
+            do
+
+                _mname="$(basename "${_marker}" .installed)"
+
+                [[ -z "${_mname}" ]] && continue
+
+                [[ "${_mname}" == "core" ]] && continue
+
+                [[ -d "${LSM_ROOT}/modules/${_mname}" ]] || continue
+
+                SELECTED_MODULES+=("${_mname}")
+
+            done < <(
+                find /var/lib/lsm/modules \
+                    -maxdepth 1 \
+                    -type f \
+                    -name '*.installed' 2>/dev/null | sort
+            )
+
+        fi
+
+
+        if [[ ${#SELECTED_MODULES[@]} -eq 0 ]]; then
+
+            log_warn "${INSTALL_COMPONENT}" \
+                "Маркеры установленных модулей не найдены - будет установлен стандартный набор."
+
+        else
+
+            log_info "${INSTALL_COMPONENT}" \
+                "Сохраненные модули: ${SELECTED_MODULES[*]}"
+
+        fi
+
+
+    else
+
+
+        #
+        # Автоматическая установка с нуля:
+        # стандартные параметры по умолчанию.
+        #
+
+        log_info "${INSTALL_COMPONENT}" \
+            "Запуск автоматической установки."
 
 
 
-    INSTALL_MODE="standard"
+        INSTALL_MODE="standard"
 
-    NOTIFICATION_METHOD="none"
-
-
-
-    INSTALL_UPS=true
-
-    UPS_PROFILE="default"
+        NOTIFICATION_METHOD="none"
 
 
 
-    DAILY_REPORT_ENABLED=true
+        INSTALL_UPS=true
 
-    DAILY_REPORT_TIME="09:00"
-
-
-
-    #
-    # Выбор всех зарегистрированных модулей.
-    #
-
-    declare -a SELECTED_MODULES=()
+        UPS_PROFILE="default"
 
 
 
-    while read -r module; do
+        DAILY_REPORT_ENABLED=true
 
-
-        [[ -z "${module}" ]] && continue
-
-
-
-        SELECTED_MODULES+=("${module}")
+        DAILY_REPORT_TIME="09:00"
 
 
 
-    done < <(registry_list)
+        #
+        # Выбор всех зарегистрированных модулей.
+        #
 
+        declare -a SELECTED_MODULES=()
+
+
+        while read -r module; do
+
+
+            [[ -z "${module}" ]] && continue
+
+
+            SELECTED_MODULES+=("${module}")
+
+
+        done < <(registry_list)
+
+
+    fi
 
 
 fi
+
 
 
 
