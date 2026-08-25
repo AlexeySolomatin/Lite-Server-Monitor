@@ -16,6 +16,7 @@ set -Eeuo pipefail
 LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
 
 if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/common.sh"; fi
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then source "${LSM_ROOT}/lib/core/logging.sh"; fi
 if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
 
 check_root

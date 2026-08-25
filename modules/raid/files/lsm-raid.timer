@@ -1,18 +1,19 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# RAID Monitor Timer
+# Таймер проверки RAID-массивов (каждые 5 минут)
 # -----------------------------------------------------------------------------
+#
 
 [Unit]
-Description=Run Lite Server Monitor RAID Check
+Description=Таймер проверки RAID-массивов (каждые 5 минут)
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-OnBootSec=3min
-OnUnitActiveSec=5min
+OnCalendar=*:0/5
+RandomizedDelaySec=25s
 AccuracySec=30s
 Persistent=true
-
 Unit=lsm-raid.service
 
 [Install]

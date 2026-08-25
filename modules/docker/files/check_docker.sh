@@ -17,8 +17,10 @@
 #
 #   Уведомления отправляются через централизованный диспетчер LSM:
 #
-#       - CRITICAL — Docker не установлен / демон недоступен /
-#                    служба docker.service остановлена;
+#       - Docker отсутствует — проверка пропускается (exit 0),
+#         уведомление не отправляется;
+#       - CRITICAL — демон недоступен / служба docker.service
+#                    остановлена;
 #       - WARNING  — остановленные контейнеры (при
 #                    STOPPED_CONTAINER_WARNING=true), превышение порога
 #                    STORAGE_WARNING_GB;
@@ -514,16 +516,18 @@ do_check()
     #
     # 1. Наличие Docker.
     #
+    # Если бинарь отсутствует, модулю нечего мониторить:
+    # это штатная ситуация (как apcaccess у модуля ups),
+    # а не авария. Проверка пропускается с кодом 0.
+    # CRITICAL резервируется для случая "Docker установлен,
+    # но сломан".
+    #
 
     if ! command -v docker >/dev/null 2>&1; then
 
-        log_error "DOCKER" "Docker не установлен в системе."
+        log_info "DOCKER" "Пропуск проверки: Docker не установлен в системе."
 
-        if declare -F notify >/dev/null 2>&1; then
-            notify "docker" "CRITICAL" "❌ Docker не установлен в системе. Проверки модуля Docker невозможны."
-        fi
-
-        return 2
+        return 0
 
     fi
 

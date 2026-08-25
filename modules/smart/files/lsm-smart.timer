@@ -1,18 +1,19 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# SMART Monitor Timer
+# Таймер проверки SMART (ежечасно)
 # -----------------------------------------------------------------------------
+#
 
 [Unit]
-Description=Run Lite Server Monitor SMART Check
+Description=Таймер проверки SMART (ежечасно)
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=1h
+OnCalendar=hourly
+RandomizedDelaySec=2min
 AccuracySec=2min
 Persistent=true
-
 Unit=lsm-smart.service
 
 [Install]

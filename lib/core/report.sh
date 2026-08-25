@@ -179,29 +179,22 @@ report_separator()
 
 report_get_header()
 {
-    local hostname_str
-    local uptime_str
-    local load_avg
-    local date_str
-    local current_ver
+    #
+    # Все переменные инициализируются сразу: под set -u обращение
+    # к объявленному, но не присвоенному local дает фатальную ошибку
+    # "unbound variable". Присваивания однострочные: backslash-переносы
+    # внутри $() в файлах с CRLF ломают парсинг.
+    #
 
+    local hostname_str=""
+    local uptime_str=""
+    local load_avg=""
+    local date_str=""
+    local current_ver=""
 
+    hostname_str="$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "unknown")"
 
-    hostname_str="$(
-        hostname -f 2>/dev/null \
-            || hostname 2>/dev/null \
-            || printf '%s\n' "unknown"
-    )
-
-
-
-    uptime_str="$(
-        uptime -p 2>/dev/null \
-            || uptime 2>/dev/null \
-            || printf '%s\n' "Н/Д"
-    )
-
-
+    uptime_str="$(uptime -p 2>/dev/null || uptime 2>/dev/null || echo "НД")"
 
     if [[ -r /proc/loadavg ]]; then
 
@@ -209,19 +202,13 @@ report_get_header()
 
     else
 
-        load_avg="Н/Д"
+        load_avg="НД"
 
     fi
 
-
-
     date_str="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 
-
-
     current_ver="${PROJECT_VERSION:-${LSM_VERSION:-unknown}}"
-
-
 
     report_separator
 

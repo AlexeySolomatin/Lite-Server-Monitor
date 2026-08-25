@@ -1,27 +1,20 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# System Monitor Timer
+# Таймер системных проверок (каждые 5 минут)
 # -----------------------------------------------------------------------------
+#
 
 [Unit]
-Description=Run Lite Server Monitor System Check
-
+Description=Таймер системных проверок (каждые 5 минут)
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-
-OnBootSec=5min
-
-OnUnitActiveSec=5min
-
+OnCalendar=*:0/5
+RandomizedDelaySec=30s
 AccuracySec=30s
-
 Persistent=true
-
-
 Unit=lsm-system.service
 
-
 [Install]
-
 WantedBy=timers.target

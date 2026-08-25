@@ -1,18 +1,19 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Temperature Monitor Timer
+# Таймер проверки температуры (каждые 5 минут)
 # -----------------------------------------------------------------------------
+#
 
 [Unit]
-Description=Run Lite Server Monitor Temperature Check
+Description=Таймер проверки температуры (каждые 5 минут)
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=5min
+OnCalendar=*:0/5
+RandomizedDelaySec=35s
 AccuracySec=30s
 Persistent=true
-
 Unit=lsm-temperature.service
 
 [Install]

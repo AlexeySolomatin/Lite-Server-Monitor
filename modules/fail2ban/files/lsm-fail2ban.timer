@@ -1,28 +1,20 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Fail2Ban Monitor Timer
+# Таймер проверки Fail2Ban (каждые 5 минут)
 # -----------------------------------------------------------------------------
+#
 
 [Unit]
-
-Description=Run Lite Server Monitor Fail2Ban Check
-
+Description=Таймер проверки Fail2Ban (каждые 5 минут)
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-
-OnBootSec=5min
-
-OnUnitActiveSec=5min
-
+OnCalendar=*:0/5
+RandomizedDelaySec=20s
 AccuracySec=30s
-
 Persistent=true
-
-
 Unit=lsm-fail2ban.service
 
-
 [Install]
-
 WantedBy=timers.target

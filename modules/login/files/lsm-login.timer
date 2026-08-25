@@ -1,28 +1,20 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Login Monitor Timer
+# Таймер проверки входов по SSH (ежеминутно)
 # -----------------------------------------------------------------------------
+#
 
 [Unit]
-
-Description=Run Lite Server Monitor Login Check
-
+Description=Таймер проверки входов по SSH (ежеминутно)
+Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-
-OnBootSec=2min
-
-OnUnitActiveSec=1min
-
-AccuracySec=15s
-
+OnCalendar=*-*-* *:*:00
+RandomizedDelaySec=5s
+AccuracySec=10s
 Persistent=true
-
-
 Unit=lsm-login.service
 
-
 [Install]
-
 WantedBy=timers.target

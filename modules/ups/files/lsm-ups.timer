@@ -1,17 +1,18 @@
-# ==============================================================================
+#
+# -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Юнит таймера мониторинга ИБП (UPS)
-# Путь: /etc/systemd/system/lsm-ups.timer
-# ==============================================================================
+# Таймер мониторинга ИБП (ежеминутно)
+# -----------------------------------------------------------------------------
+#
 
 [Unit]
-Description=Lite Server Monitor - UPS Monitor Timer
+Description=Таймер мониторинга ИБП (ежеминутно)
 Documentation=https://github.com/AlexeySolomatin/Lite-Server-Monitor
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=1min
-AccuracySec=15s
+OnCalendar=*-*-* *:*:30
+RandomizedDelaySec=5s
+AccuracySec=10s
 Persistent=true
 Unit=lsm-ups.service
 
