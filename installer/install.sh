@@ -393,7 +393,14 @@ log_info "${INSTALL_COMPONENT}" \
     "Зарегистрированные модули:"
 
 
-registry_list
+while read -r _registered_module
+do
+
+    [[ -z "${_registered_module}" ]] && continue
+
+    printf ' - %s\n' "${_registered_module}"
+
+done < <(registry_list)
 
 
 

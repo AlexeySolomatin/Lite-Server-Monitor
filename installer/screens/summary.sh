@@ -44,12 +44,47 @@ screen_summary()
     # Основные параметры
     #
 
+    local mode_label="Стандартная"
+
+    case "${INSTALL_MODE:-standard}" in
+
+        custom)
+            mode_label="Настраиваемая"
+            ;;
+
+        *)
+            mode_label="Стандартная"
+            ;;
+
+    esac
+
+
+    local notify_label="не настроены"
+
+    case "${NOTIFICATION_METHOD:-none}" in
+
+        telegram)
+            notify_label="Telegram"
+            ;;
+
+        email)
+            notify_label="Email"
+            ;;
+
+        both)
+            notify_label="Telegram + Email"
+            ;;
+
+    esac
+
+
+
     echo -e \
-        "  ${CLR_CYAN}Режим установки:${CLR_RESET}      ${INSTALL_MODE:-standard}"
+        "  ${CLR_CYAN}Режим установки:${CLR_RESET}      ${mode_label}"
 
 
     echo -e \
-        "  ${CLR_CYAN}Уведомления:${CLR_RESET}          ${NOTIFICATION_METHOD:-none}"
+        "  ${CLR_CYAN}Уведомления:${CLR_RESET}          ${notify_label}"
 
 
 
@@ -122,8 +157,21 @@ screen_summary()
     if [[ "${INSTALL_UPS:-false}" == "true" ]]; then
 
 
+    if [[ -n "${UPS_PROFILE:-}" ]]; then
+
+
         echo -e \
-            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       включен (${UPS_PROFILE:-default})"
+            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       включен (профиль: ${UPS_PROFILE})"
+
+
+    else
+
+
+        echo -e \
+            "  ${CLR_CYAN}Мониторинг ИБП:${CLR_RESET}       включен"
+
+
+    fi
 
 
     else

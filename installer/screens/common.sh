@@ -111,7 +111,7 @@ wizard_input() {
     local prompt="$1"
     local var_name="$2"
     local default_val="${3:-}"
-    local user_val
+    local user_val=""
 
     if [[ -n "${default_val}" ]]; then
         read -rp "${CLR_BOLD}${prompt}${CLR_RESET} [${CLR_YELLOW}${default_val}${CLR_RESET}]: " user_val
@@ -132,7 +132,7 @@ wizard_input() {
 wizard_mask_input() {
     local prompt="$1"
     local var_name="$2"
-    local secret_val
+    local secret_val=""
 
     while [[ -z "${secret_val}" ]]; do
         read -rsp "${CLR_BOLD}${prompt}${CLR_RESET}: " secret_val
