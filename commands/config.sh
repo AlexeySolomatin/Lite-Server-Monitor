@@ -72,18 +72,26 @@ CONFIG_DIR="${LSM_CONFIG_DIR:-/etc/lsm}"
 
 
 #
-# Проверка существования каталога конфигурации
+# Проверка существования каталога конфигурации.
+#
+# Требуется только для list/show: справка должна быть доступна
+# всегда, даже на машине без установленного LSM.
 #
 
-if [[ ! -d "${CONFIG_DIR}" ]]; then
+config_require_dir()
+{
 
-    log_error \
-        "${CONFIG_COMPONENT}" \
-        "Каталог конфигурации не найден: ${CONFIG_DIR}"
+    if [[ ! -d "${CONFIG_DIR}" ]]; then
 
-    exit 1
+        log_error \
+            "${CONFIG_COMPONENT}" \
+            "Каталог конфигурации не найден: ${CONFIG_DIR}"
 
-fi
+        return 1
+
+    fi
+
+}
 
 
 
@@ -171,13 +179,21 @@ main()
 
 
         list)
-            config_list
+            if config_require_dir; then
+                config_list
+            else
+                return 1
+            fi
             ;;
 
 
         show)
             shift || true
-            config_show "${1:-}"
+            if config_require_dir; then
+                config_show "${1:-}"
+            else
+                return 1
+            fi
             ;;
 
 

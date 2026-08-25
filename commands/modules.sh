@@ -34,6 +34,12 @@ export LSM_ROOT
 source "${LSM_ROOT}/lib/core/common.sh"
 
 # shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/core/logging.sh"
+
+# shellcheck source=/dev/null
+source "${LSM_ROOT}/lib/installer/module_loader.sh"
+
+# shellcheck source=/dev/null
 source "${LSM_ROOT}/lib/installer/registry.sh"
 
 # shellcheck source=/dev/null
@@ -116,7 +122,7 @@ modules_available()
     echo
 
 
-    modules_list
+    registry_list
 
 
     echo
