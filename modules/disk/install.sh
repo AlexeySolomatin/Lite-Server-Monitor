@@ -73,7 +73,13 @@ fi
 # 5. Перезапуск конфигурации systemd и активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-disk.timer || true
+    if ! systemctl enable --now lsm-disk.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "DISK" "Не удалось активировать таймер lsm-disk.timer. Диагностика: systemctl status lsm-disk.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-disk.timer." >&2
+        fi
+    fi
 fi
 
 log_success "DISK" "Модуль мониторинга дисков успешно установлен."

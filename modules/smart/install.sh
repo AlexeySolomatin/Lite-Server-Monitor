@@ -41,7 +41,13 @@ fi
 # 4. Активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-smart.timer || true
+    if ! systemctl enable --now lsm-smart.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "SMART" "Не удалось активировать таймер lsm-smart.timer. Диагностика: systemctl status lsm-smart.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-smart.timer." >&2
+        fi
+    fi
 fi
 
 log_success "SMART" "Модуль мониторинга SMART успешно установлен."

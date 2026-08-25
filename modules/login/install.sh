@@ -95,7 +95,13 @@ fi
 # 4. Активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-login.timer || true
+    if ! systemctl enable --now lsm-login.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "LOGIN" "Не удалось активировать таймер lsm-login.timer. Диагностика: systemctl status lsm-login.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-login.timer." >&2
+        fi
+    fi
 fi
 
 log_success "LOGIN" "Модуль контроля входов пользователей успешно установлен."

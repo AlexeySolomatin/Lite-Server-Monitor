@@ -95,7 +95,13 @@ fi
 # 4. Активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-fail2ban.timer || true
+    if ! systemctl enable --now lsm-fail2ban.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "FAIL2BAN" "Не удалось активировать таймер lsm-fail2ban.timer. Диагностика: systemctl status lsm-fail2ban.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-fail2ban.timer." >&2
+        fi
+    fi
 fi
 
 log_success "FAIL2BAN" "Модуль мониторинга Fail2Ban успешно установлен."

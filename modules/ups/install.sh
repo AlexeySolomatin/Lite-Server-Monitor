@@ -62,7 +62,13 @@ fi
 # 4. Перезагрузка конфигурации systemd и активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-ups.timer || true
+    if ! systemctl enable --now lsm-ups.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "UPS" "Не удалось активировать таймер lsm-ups.timer. Диагностика: systemctl status lsm-ups.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-ups.timer." >&2
+        fi
+    fi
 fi
 
 log_success "UPS" "Модуль мониторинга ИБП (UPS) успешно установлен."

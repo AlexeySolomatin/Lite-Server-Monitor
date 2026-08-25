@@ -74,7 +74,13 @@ fi
 # 4. Перезагрузка конфигурации systemd и активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-docker.timer || true
+    if ! systemctl enable --now lsm-docker.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "DOCKER" "Не удалось активировать таймер lsm-docker.timer. Диагностика: systemctl status lsm-docker.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-docker.timer." >&2
+        fi
+    fi
 fi
 
 if declare -f log_success >/dev/null 2>&1; then

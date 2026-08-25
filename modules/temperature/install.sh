@@ -40,7 +40,13 @@ fi
 # 4. Активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-temperature.timer || true
+    if ! systemctl enable --now lsm-temperature.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "TEMPERATURE" "Не удалось активировать таймер lsm-temperature.timer. Диагностика: systemctl status lsm-temperature.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-temperature.timer." >&2
+        fi
+    fi
 fi
 
 log_success "TEMPERATURE" "Модуль контроля температуры успешно установлен."

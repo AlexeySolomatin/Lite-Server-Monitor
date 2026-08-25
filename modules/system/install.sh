@@ -40,7 +40,13 @@ fi
 # 4. Активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable --now lsm-system.timer || true
+    if ! systemctl enable --now lsm-system.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "SYSTEM" "Не удалось активировать таймер lsm-system.timer. Диагностика: systemctl status lsm-system.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-system.timer." >&2
+        fi
+    fi
 fi
 
 log_success "SYSTEM" "Модуль мониторинга системных ресурсов успешно установлен."

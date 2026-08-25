@@ -60,7 +60,17 @@ fi
 # 3. Перезагрузка конфигурации systemd и активация таймера!
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
-    systemctl enable lsm-report.timer || true
+
+    if ! systemctl enable lsm-report.timer; then
+
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "INSTALL" "Не удалось активировать таймер lsm-report.timer. Диагностика: systemctl status lsm-report.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-report.timer." >&2
+        fi
+
+    fi
+
     systemctl restart lsm-report.timer || true
 fi
 

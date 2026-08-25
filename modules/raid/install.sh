@@ -52,7 +52,13 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
     log_info "RAID" "Перезагрузка конфигурации systemd и активация lsm-raid.timer..."
     systemctl daemon-reload || true
-    systemctl enable --now lsm-raid.timer || true
+    if ! systemctl enable --now lsm-raid.timer; then
+        if declare -f log_warn >/dev/null 2>&1; then
+            log_warn "RAID" "Не удалось активировать таймер lsm-raid.timer. Диагностика: systemctl status lsm-raid.timer"
+        else
+            echo "Предупреждение: не удалось активировать таймер lsm-raid.timer." >&2
+        fi
+    fi
 fi
 
 log_success "RAID" "Модуль мониторинга RAID успешно установлен."
