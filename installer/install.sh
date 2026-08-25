@@ -4,7 +4,7 @@
 # Главный скрипт установки
 #
 # Путь:
-#   installer/installer.sh
+#   installer/install.sh
 #
 # Назначение:
 #   Центральная точка запуска установки Lite Server Monitor.
@@ -523,17 +523,12 @@ done
 
 
 #
-# Создание CLI-команды LSM.
+# Системная ссылка /usr/local/bin/lsm
 #
-# Используем постоянный каталог установки,
-# а не временный LSM_ROOT bootstrap.
+# Создается на этапе step_permissions (07_permissions.sh)
+# после развертывания файлов и настройки прав.
+# Повторное создание здесь не требуется.
 #
-
-LSM_INSTALL_DIR="${LSM_INSTALL_DIR:-/opt/lsm}"
-
-deploy_create_symlink \
-    "${LSM_INSTALL_DIR:-/opt/lsm}/bin/lsm" \
-    "/usr/local/bin/lsm"
 
 
 

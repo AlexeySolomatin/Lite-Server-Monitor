@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module API
+# API взаимодействия с модулями
+#
+# Путь:
+#   lib/core/module_api.sh
 #
 # Назначение:
 #   Единый интерфейс взаимодействия ядра LSM с модулями мониторинга.
@@ -37,9 +40,6 @@
 # Дополнительно поддерживается:
 #
 #   modules/<module>/files/check.sh
-#
-# Путь:
-#   lib/core/module_api.sh
 #
 # ==============================================================================
 
@@ -200,6 +200,102 @@ _module_api_log_error()
             "$*"
 
     fi
+}
+
+
+
+#
+# Получение категории модуля из manifest.conf.
+#
+# Манифест намеренно НЕ source-ится,
+# чтобы избежать побочных эффектов
+# в вызывающем процессе.
+#
+
+_module_api_get_category()
+{
+    local module="${1:-}"
+
+
+
+    _module_api_valid_name "${module}" || return 1
+
+
+
+    local manifest="${LSM_MODULES_DIR}/${module}/manifest.conf"
+
+    [[ -f "${manifest}" ]] || return 1
+
+
+
+    local line
+
+    local category=""
+
+
+
+    while IFS= read -r line || [[ -n "${line}" ]]
+    do
+
+        line="${line%$'\r'}"
+
+
+
+        case "${line}" in
+
+            MODULE_CATEGORY=*)
+                category="${line#MODULE_CATEGORY=}"
+                ;;
+
+        esac
+
+    done < "${manifest}"
+
+
+
+    #
+    # Снятие необязательных кавычек значения.
+    #
+
+    case "${category}" in
+
+        \"*\") category="${category:1:${#category}-2}" ;;
+        \'*\') category="${category:1:${#category}-2}" ;;
+
+    esac
+
+
+
+    printf '%s\n' "${category}"
+
+    return 0
+}
+
+
+
+#
+# module_api_is_system MODULE
+#
+# Возвращает 0, если модуль является системным
+# (MODULE_CATEGORY="system" в manifest.conf).
+#
+# Системные модули (например core) не являются
+# мониторинговыми и не обязаны иметь check-скрипт.
+#
+
+module_api_is_system()
+{
+    local module="${1:-}"
+
+    local category
+
+
+
+    category="$(_module_api_get_category "${module}")" || return 1
+
+
+
+    [[ "${category}" == "system" ]]
 }
 
 
@@ -498,6 +594,21 @@ module_api_run()
 
     if ! script="$(module_api_get_check_script "${module}")"; then
 
+        #
+        # Системные модули (например core) не обязаны
+        # иметь check-скрипт и не проверяются
+        # как обычные мониторинговые модули.
+        #
+
+        if module_api_is_system "${module}"; then
+
+            _module_api_log_debug \
+                "Системный модуль без check-скрипта: ${module}"
+
+            return 0
+
+        fi
+
         _module_api_log_error \
             "Check-скрипт отсутствует: ${module}"
 
@@ -636,6 +747,18 @@ module_api_report_all()
 
 
         #
+        # Системные модули не формируют отчетов.
+        #
+
+        if module_api_is_system "${module}"; then
+
+            continue
+
+        fi
+
+
+
+        #
         # Заголовок модуля.
         #
         # Если ui_section доступен,
@@ -715,6 +838,19 @@ module_api_check_all()
     do
 
         [[ -z "${module}" ]] && continue
+
+
+
+        #
+        # Системные модули не проходят
+        # мониторинговую check-проверку.
+        #
+
+        if module_api_is_system "${module}"; then
+
+            continue
+
+        fi
 
 
 

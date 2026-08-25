@@ -2,9 +2,9 @@
 
 ## Спецификация проекта
 
-Версия: 1.0
+Версия: 1.2
 
-Статус: Draft
+Статус: Актуализирована по состоянию кода (0.1.x)
 
 ---
 
@@ -87,24 +87,34 @@ Reports
 
 # 6. Структура репозитория
 
-```
+```text
 Lite-Server-Monitor/
 
-bootstrap.sh
-
-installer/
-
-bin/
-
-lib/
-
-scripts/
-
-templates/
-
-docs/
-
-tests/
+├── bootstrap.sh          Загрузчик установки (скачивание и запуск установщика)
+│
+├── bin/
+│   └── lsm               Главная CLI-точка входа
+│
+├── commands/             Реализации команд CLI (status, report, doctor, ...)
+│
+├── installer/            Установщик, мастер настройки, этапы и экраны
+│   ├── install.sh
+│   ├── update.sh
+│   ├── uninstall.sh
+│   ├── wizard.sh
+│   ├── steps/
+│   └── screens/
+│
+├── lib/
+│   ├── core/             Базовые библиотеки (logging, ui, module_api, report...)
+│   ├── installer/        Логика установки (deploy, registry, modules...)
+│   └── notifications/    Единая система уведомлений (notify, telegram, email)
+│
+├── modules/              Модули мониторинга
+│
+├── templates/            Шаблоны основных конфигурационных файлов
+│
+└── docs/                 Документация проекта
 ```
 
 Каждый каталог имеет строго определенное назначение.
@@ -134,7 +144,13 @@ lsm status
 
 lsm report
 
+lsm modules
+
+lsm config
+
 lsm version
+
+lsm help
 ```
 
 Пользователь не должен запускать внутренние скрипты напрямую.
@@ -145,7 +161,7 @@ lsm version
 
 Каждый модуль отвечает только за одну задачу.
 
-Например:
+Мониторинговые модули:
 
 ```
 Disk Monitor
@@ -158,10 +174,46 @@ Temperature Monitor
 
 UPS Monitor
 
+System Monitor (CPU / RAM / диск)
+
+Docker Monitor
+
 Login Monitor
 
 Fail2Ban Monitor
 ```
+
+Дополнительно существует системный модуль `core`. Он не является
+мониторинговым: не имеет check-скрипта и отвечает за установку
+`lsm-report.service` и `lsm-report.timer` ежедневного сводного отчета.
+Остальные модули объявляют зависимость от него через
+`MODULE_DEPENDENCIES="core"`.
+
+Контракт мониторингового модуля:
+
+```text
+modules/<name>/
+├── manifest.conf        Метаданные (ID, категория, зависимости, дефолт)
+├── install.sh           Установка (юниты, конфиг, таймер)
+├── uninstall.sh         Симметричное удаление с очисткой state
+├── README.md            Документация модуля
+├── files/
+│   ├── check_<name>.sh  Проверка: режимы status | report | check
+│   ├── lsm-<name>.service
+│   └── lsm-<name>.timer
+└── templates/
+    └── <name>.conf      Шаблон конфигурации модуля
+```
+
+Режимы check-скрипта:
+
+- `status` — краткий статус, всегда exit 0;
+- `report` — подробный человекочитаемый отчет, всегда exit 0;
+- `check`  — машинная проверка с уведомлениями:
+  exit 0 = OK, exit 1 = WARNING, exit 2 = CRITICAL или ошибка окружения.
+
+Уведомления отправляются только через централизованный диспетчер
+`lib/notifications/notify.sh`.
 
 Модули должны быть максимально независимыми.
 
@@ -183,6 +235,10 @@ Fail2Ban Monitor
 - Disk Usage
 - SMART
 - RAID
+
+## Сервисы
+
+- Docker
 
 ## UPS
 
@@ -235,21 +291,20 @@ LSM формирует ежедневый отчет, содержащий:
 /etc/lsm
 ```
 
-Предполагается использование нескольких конфигурационных файлов.
+Основные файлы:
 
-Например:
+```text
+config.conf          Основные параметры: каналы уведомлений, SMTP,
+                     кулдаун алертов, ежедневный отчет
 
+secrets.conf         Секреты (Telegram-токен, SMTP-пароль), права 600
+
+modules/<name>.conf  Конфигурация конкретного модуля
+                     (пороги, опции, включение проверок)
 ```
-config.conf
 
-modules.conf
-
-notifications.conf
-
-thresholds.conf
-
-secrets.conf
-```
+Файл `notifications.conf` является устаревшим резервным вариантом:
+он читается только если отсутствует `config.conf`.
 
 Каждый файл отвечает только за свою область настроек.
 

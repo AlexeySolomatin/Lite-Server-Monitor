@@ -21,7 +21,6 @@
 #   lsm doctor
 #   lsm report
 #   lsm config
-#   lsm tui
 #
 # ==============================================================================
 
@@ -349,22 +348,6 @@ case "${COMMAND}" in
 
         exec bash \
             "${LSM_ROOT}/commands/config.sh" \
-            "$@"
-
-        ;;
-
-
-
-    #
-    # TUI-интерфейс
-    #
-
-    tui)
-
-        ensure_root
-
-        exec bash \
-            "${LSM_ROOT}/lib/tui/tui.sh" \
             "$@"
 
         ;;

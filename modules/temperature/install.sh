@@ -2,7 +2,7 @@
 #
 # -----------------------------------------------------------------------------
 # Lite Server Monitor (LSM)
-# Temperature Module Installer
+# Инсталлятор модуля контроля температуры
 # -----------------------------------------------------------------------------
 
 set -Eeuo pipefail
@@ -14,21 +14,13 @@ if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then source "${LSM_ROOT}/lib/core/
 if [[ -f "${LSM_ROOT}/lib/core/ui.sh" ]]; then source "${LSM_ROOT}/lib/core/ui.sh"; fi
 if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then source "${LSM_ROOT}/lib/installer/deploy.sh"; fi
 
-log_info "Installing Temperature monitoring module..."
+log_info "TEMPERATURE" "Установка модуля контроля температуры..."
 
 # 1. Директории
-deploy_create_directory "${LSM_ROOT}/modules/temperature" "755" "root" "root"
 deploy_create_directory "/etc/lsm/modules" "755" "root" "root"
 
-# 2. Исполняемый файл
-if [[ -f "${MODULE_DIR}/files/check_temperature.sh" ]]; then
-    deploy_install_file \
-        "${MODULE_DIR}/files/check_temperature.sh" \
-        "${LSM_ROOT}/modules/temperature/check_temperature.sh" \
-        "755" "root" "root"
-fi
-
-# 3. Systemd юниты
+# 2. Systemd юниты
+#    Исполняемый файл уже развернут в /opt/lsm/modules/temperature/files/check_temperature.sh
 if [[ -f "${MODULE_DIR}/files/lsm-temperature.service" ]]; then
     deploy_install_file "${MODULE_DIR}/files/lsm-temperature.service" "/etc/systemd/system/lsm-temperature.service" "644" "root" "root"
 fi
@@ -36,19 +28,19 @@ if [[ -f "${MODULE_DIR}/files/lsm-temperature.timer" ]]; then
     deploy_install_file "${MODULE_DIR}/files/lsm-temperature.timer" "/etc/systemd/system/lsm-temperature.timer" "644" "root" "root"
 fi
 
-# 4. Конфигурация
+# 3. Конфигурация (без перезаписи существующей)
 if [[ -f "${MODULE_DIR}/templates/temperature.conf" ]]; then
     if [[ ! -f "/etc/lsm/modules/temperature.conf" ]]; then
         deploy_install_file "${MODULE_DIR}/templates/temperature.conf" "/etc/lsm/modules/temperature.conf" "640" "root" "root"
     else
-        log_warn "Configuration /etc/lsm/modules/temperature.conf already exists, skipping overwrite."
+        log_warn "TEMPERATURE" "Конфигурация /etc/lsm/modules/temperature.conf уже существует, пропуск перезаписи."
     fi
 fi
 
-# 5. Активация таймера
+# 4. Активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable --now lsm-temperature.timer || true
 fi
 
-log_success "Temperature monitoring module installed successfully."
+log_success "TEMPERATURE" "Модуль контроля температуры успешно установлен."

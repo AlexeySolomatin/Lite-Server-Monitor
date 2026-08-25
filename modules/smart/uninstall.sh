@@ -15,14 +15,55 @@ if [[ -z "${LSM_ROOT:-}" ]]; then
 fi
 export LSM_ROOT
 
-#
-# Базовые библиотеки (согласно UNINSTALL CONTRACT)
-#
-source "${LSM_ROOT}/lib/core/logging.sh"
-source "${LSM_ROOT}/lib/installer/deploy.sh"
-
 readonly MODULE_NAME="smart"
 readonly LOG_COMPONENT="SMART"
+readonly STATE_DIR="/var/lib/lsm/state"
+
+#
+# Базовые библиотеки подключаются условно,
+# чтобы удаление не падало при недоступных файлах библиотек.
+#
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/logging.sh"
+fi
+
+if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/installer/deploy.sh"
+fi
+
+#
+# Резервные реализации на случай отсутствия библиотек.
+#
+
+if ! declare -F deploy_remove_file >/dev/null 2>&1; then
+    deploy_remove_file() {
+        if [[ -f "${1:-}" || -L "${1:-}" ]]; then
+            rm -f -- "${1}"
+        fi
+    }
+fi
+
+if ! declare -F deploy_remove_directory >/dev/null 2>&1; then
+    deploy_remove_directory() {
+        if [[ -d "${1:-}" ]]; then
+            rm -rf -- "${1}"
+        fi
+    }
+fi
+
+if ! declare -F log_info >/dev/null 2>&1; then
+    log_info() { printf '[INFO] [%s] %s\n' "${LOG_COMPONENT}" "$*"; }
+fi
+
+if ! declare -F log_warn >/dev/null 2>&1; then
+    log_warn() { printf '[WARN] [%s] %s\n' "${LOG_COMPONENT}" "$*" >&2; }
+fi
+
+if ! declare -F log_success >/dev/null 2>&1; then
+    log_success() { printf '[OK] [%s] %s\n' "${LOG_COMPONENT}" "$*"; }
+fi
 
 #
 # 1. Остановка и отключение systemd
@@ -51,11 +92,25 @@ fi
 deploy_remove_file "/etc/lsm/modules/${MODULE_NAME}.conf"
 
 #
-# 5. Удаление директории модуля
+# 5. Очистка файлов состояния:
+#
+#    smart_alert_<диск> — per-disk алерты;
+#    smart.state        — состояние уведомлений (notify);
+#    smart_check.lock   — файл блокировки.
+#
+
+rm -f "${STATE_DIR}"/smart_alert_* 2>/dev/null || true
+
+deploy_remove_file "${STATE_DIR}/${MODULE_NAME}.state"
+
+deploy_remove_file "${STATE_DIR}/${MODULE_NAME}_check.lock"
+
+#
+# 6. Удаление директории модуля
 #
 deploy_remove_directory "${LSM_ROOT}/modules/${MODULE_NAME}"
 
 #
-# 6. Финальный лог
+# 7. Финальный лог
 #
 log_success "${LOG_COMPONENT}" "Модуль мониторинга SMART успешно удалён."

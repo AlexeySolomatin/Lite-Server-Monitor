@@ -187,13 +187,13 @@ print_header()
         '   __     _____    __  __   (LSM) Lite Server Monitor'
 
     printf '%s\n' \
-        '  / /    / ___/   /  \/  |   Lightweight System Monitoring & Alerting'
+        '  / /    / ___/   /  \/  |   Легковесный мониторинг и оповещение серверов Linux'
 
-    printf ' / /___  \___ \  / /\__/ |   Version: %s\n' \
+    printf ' / /___  \___ \  / /\__/ |   Версия: %s\n' \
         "${PROJECT_VERSION}"
 
     printf '%s\n' \
-        '/_____/ /_____/ /_/    /_/   Linux Server Management Tools'
+        '/_____/ /_____/ /_/    /_/   Инструменты управления Linux-сервером'
 
     printf '%s\n' \
         '====================================================================='

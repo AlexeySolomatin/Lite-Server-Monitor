@@ -9,10 +9,8 @@ set -Eeuo pipefail
 
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# LSM_ROOT — исходный корень репозитория (из окружения или вычисляется)
-# LSM_INSTALL_DIR — целевая директория установки в системе (/opt/lsm)
-LSM_ROOT="${LSM_ROOT:-$(cd "${MODULE_DIR}/../.." && pwd)}"
-LSM_INSTALL_DIR="${LSM_INSTALL_DIR:-/opt/lsm}"
+# Единый корень установки LSM
+LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
 
 #
 # Безопасная подгрузка библиотек ядра из исходников
@@ -35,24 +33,17 @@ elif [[ -f "${MODULE_DIR}/../../lib/installer/deploy.sh" ]]; then
     source "${MODULE_DIR}/../../lib/installer/deploy.sh"
 fi
 
-log_info "Установка модуля мониторинга дисков..."
+log_info "DISK" "Установка модуля мониторинга дисков..."
 
-# 1. Создание директорий назначения
-deploy_create_directory "${LSM_INSTALL_DIR}/modules/disk" "755" "root" "root"
+# 1. Создание директории конфигурации
 deploy_create_directory "/etc/lsm/modules" "755" "root" "root"
 
-# 2. Установка исполняемого файла и манифеста
-if [[ -f "${MODULE_DIR}/files/check_disk.sh" ]]; then
-    deploy_install_file \
-        "${MODULE_DIR}/files/check_disk.sh" \
-        "${LSM_INSTALL_DIR}/modules/disk/check_disk.sh" \
-        "755" "root" "root"
-fi
-
+# 2. Манифест модуля
+#    Исполняемый файл уже развернут в /opt/lsm/modules/disk/files/check_disk.sh
 if [[ -f "${MODULE_DIR}/manifest.conf" ]]; then
     deploy_install_file \
         "${MODULE_DIR}/manifest.conf" \
-        "${LSM_INSTALL_DIR}/modules/disk/manifest.conf" \
+        "${LSM_ROOT}/modules/disk/manifest.conf" \
         "644" "root" "root"
 fi
 
@@ -79,7 +70,7 @@ if [[ -f "${MODULE_DIR}/templates/disk.conf" ]]; then
             "/etc/lsm/modules/disk.conf" \
             "640" "root" "root"
     else
-        log_warn "Конфигурация /etc/lsm/modules/disk.conf уже существует, пропуск перезаписи."
+        log_warn "DISK" "Конфигурация /etc/lsm/modules/disk.conf уже существует, пропуск перезаписи."
     fi
 fi
 
@@ -89,4 +80,4 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl enable --now lsm-disk.timer || true
 fi
 
-log_success "Модуль мониторинга дисков успешно установлен."
+log_success "DISK" "Модуль мониторинга дисков успешно установлен."

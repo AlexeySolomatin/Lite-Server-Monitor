@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Step 03: Directory Structure and Codebase Deployment
-# Path: installer/steps/03_directories.sh
-# -----------------------------------------------------------------------------
+# Шаг 03: Структура каталогов и развертывание кодовой базы
+#
+# Путь:
+#   installer/steps/03_directories.sh
+#
+# Назначение:
+#   Создание структуры каталогов LSM и копирование файлов проекта
+#   в целевой каталог установки.
+#
+# ==============================================================================
 
 set -Eeuo pipefail
 
@@ -16,7 +22,7 @@ readonly DIRECTORIES_COMPONENT="DIRECTORIES"
 step_directories()
 {
 
-    print_section "Directory Structure"
+    print_section "Создание структуры каталогов"
 
 
 
@@ -172,6 +178,14 @@ step_directories()
 
 
     find "${target_dir}/commands" \
+        -type f \
+        -name "*.sh" \
+        -exec chmod +x {} + \
+        2>/dev/null || true
+
+
+
+    find "${target_dir}/lib" \
         -type f \
         -name "*.sh" \
         -exec chmod +x {} + \

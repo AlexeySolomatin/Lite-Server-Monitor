@@ -2,7 +2,9 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Этап 04: Развертывание конфигурации
-# Путь: installer/steps/04_configuration.sh
+#
+# Путь:
+#   installer/steps/04_configuration.sh
 #
 # Назначение:
 #   Создает основные конфигурационные файлы LSM:
@@ -66,20 +68,25 @@ step_configuration()
 
 
     #
-    # Основной конфиг
+    # Основной конфиг.
+    #
+    # Шаблон копируется только при первом создании файла.
+    # Повторная установка и обновление обязаны сохранять
+    # пользовательские настройки: конкретные ключи
+    # обновляются ниже через config_set().
     #
 
-    if [[ -f "${template_source}" ]]; then
+    if [[ ! -f "${config_file}" ]]; then
 
+        if [[ -f "${template_source}" ]]; then
 
-        cp "${template_source}" "${config_file}"
+            cp "${template_source}" "${config_file}"
 
+        else
 
-    else
+            touch "${config_file}"
 
-
-        touch "${config_file}"
-
+        fi
 
     fi
 
@@ -104,12 +111,13 @@ step_configuration()
 # Секреты уведомлений
 #
 # Заполняется вручную или мастером установки.
+# Имена переменных должны совпадать с lib/notifications/*.
 # ==============================================================================
 
 
-TG_BOT_TOKEN=""
+TELEGRAM_BOT_TOKEN=""
 
-TG_CHAT_ID=""
+TELEGRAM_CHAT_ID=""
 
 
 SMTP_USER=""
@@ -237,13 +245,31 @@ EOF
     #
     # Telegram секреты
     #
+    # Мастер установки собирает значения в переменных TG_*,
+    # а lib/notifications/telegram.sh читает TELEGRAM_*.
+    # Поэтому выполняется отображение имен.
+    #
 
     [[ -n "${TG_BOT_TOKEN:-}" ]] &&
-        secret_set TG_BOT_TOKEN "${TG_BOT_TOKEN}"
+        secret_set TELEGRAM_BOT_TOKEN "${TG_BOT_TOKEN}"
 
 
     [[ -n "${TG_CHAT_ID:-}" ]] &&
-        secret_set TG_CHAT_ID "${TG_CHAT_ID}"
+        secret_set TELEGRAM_CHAT_ID "${TG_CHAT_ID}"
+
+
+
+    #
+    # Email получатель
+    #
+
+    if [[ -n "${ALERT_EMAIL:-}" ]]; then
+
+        config_set ALERT_EMAIL "${ALERT_EMAIL}"
+
+        config_set EMAIL_TO "${ALERT_EMAIL}"
+
+    fi
 
 
 

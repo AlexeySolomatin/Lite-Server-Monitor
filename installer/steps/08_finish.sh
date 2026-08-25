@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
-
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Installation Step 08 - Finish
-# Path: installer/steps/08_finish.sh
-# -----------------------------------------------------------------------------
+# Шаг 08: Завершение установки
+#
+# Путь:
+#   installer/steps/08_finish.sh
+#
+# Назначение:
+#   Финальная проверка результатов установки и вывод сводки.
+#
+# ==============================================================================
 
 set -Eeuo pipefail
 
 #
-# Environment
+# Окружение
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -19,7 +24,7 @@ export LSM_ROOT
 export LSM_INSTALL_DIR
 
 #
-# Core libraries
+# Библиотеки ядра
 #
 
 source "${LSM_ROOT}/lib/core/common.sh"
@@ -30,7 +35,7 @@ readonly FINISH_COMPONENT="FINISH"
 
 step_finish()
 {
-    print_section "Installation Summary"
+    print_section "Итоги установки"
 
     #
     # Проверка основных компонентов
@@ -47,7 +52,7 @@ step_finish()
     if [[ ! -x "${expected_cli}" ]]; then
     
         log_error "${FINISH_COMPONENT}" \
-            "CLI executable missing or not executable: ${expected_cli}"
+            "Исполняемый файл CLI отсутствует или не является исполняемым: ${expected_cli}"
     
         errors=$((errors + 1))
     
@@ -62,10 +67,10 @@ step_finish()
     if [[ "${cli_path}" != "${expected_cli}" ]]; then
     
         log_error "${FINISH_COMPONENT}" \
-            "CLI command points to an invalid location: ${cli_path}"
-    
+            "Команда lsm указывает на неверное расположение: ${cli_path}"
+
         log_error "${FINISH_COMPONENT}" \
-            "Expected location: ${expected_cli}"
+            "Ожидаемое расположение: ${expected_cli}"
     
         errors=$((errors + 1))
     
@@ -78,7 +83,7 @@ step_finish()
     if [[ ! -d "/var/log/lsm" ]]; then
 
         log_warn "${FINISH_COMPONENT}" \
-            "Log directory missing."
+            "Каталог журналов отсутствует."
 
     fi
 
@@ -89,7 +94,7 @@ step_finish()
     if (( errors > 0 )); then
 
         log_error "${FINISH_COMPONENT}" \
-            "Installation completed with errors: ${errors}"
+            "Установка завершена с ошибками: ${errors}"
 
         return 1
 
@@ -100,24 +105,24 @@ step_finish()
     #
 
     log_success "${FINISH_COMPONENT}" \
-        "Lite Server Monitor v${PROJECT_VERSION} successfully installed."
+        "Lite Server Monitor v${PROJECT_VERSION} успешно установлен."
 
     echo
 
     log_info "${FINISH_COMPONENT}" \
-        "Installation path: ${LSM_INSTALL_DIR}"
+        "Каталог установки: ${LSM_INSTALL_DIR}"
 
     log_info "${FINISH_COMPONENT}" \
-        "Configuration: /etc/lsm"
+        "Конфигурация: /etc/lsm"
 
     log_info "${FINISH_COMPONENT}" \
-        "Logs: /var/log/lsm"
+        "Журналы: /var/log/lsm"
 
     log_info "${FINISH_COMPONENT}" \
         "CLI: lsm status"
 
     #
-    # Installed modules
+    # Установленные модули
     #
 
     if declare -f modules_installed_list >/dev/null 2>&1; then
@@ -125,7 +130,7 @@ step_finish()
         echo
 
         log_info "${FINISH_COMPONENT}" \
-            "Installed modules:"
+            "Установленные модули:"
 
         while read -r module; do
 
@@ -140,13 +145,13 @@ step_finish()
     echo
 
     log_success "${FINISH_COMPONENT}" \
-        "Installation finished."
+        "Установка завершена."
 
     return 0
 }
 
 #
-# Standalone execution
+# Автономный запуск
 #
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

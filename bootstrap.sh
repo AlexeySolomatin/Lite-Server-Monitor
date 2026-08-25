@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Стартовый загрузчик (Bootstrap Installer)
-# -----------------------------------------------------------------------------
+# Стартовый загрузчик (Bootstrap)
+#
+# Путь:
+#   bootstrap.sh
+#
+# Назначение:
+#   Загрузка исходных файлов Lite Server Monitor из репозитория
+#   и запуск установщика installer/install.sh.
+#
+# Примечание:
+#   Предназначен для запуска напрямую из интернета (curl | bash).
+#   Требуются права root.
+#
+# ==============================================================================
 
 set -Eeuo pipefail
 
@@ -51,7 +62,7 @@ _timestamp()
 
 
 #
-# Bootstrap logging
+# Журналирование загрузчика
 #
 
 bootstrap_log_info()
@@ -85,7 +96,7 @@ bootstrap_log_error()
 
 
 #
-# Cleanup
+# Очистка
 #
 
 cleanup()
@@ -99,13 +110,13 @@ trap cleanup EXIT INT TERM
 
 
 printf "\n"
-printf "Lite Server Monitor Bootstrap Installer\n"
+printf "Загрузчик установки Lite Server Monitor\n"
 printf "\n"
 
 
 
 #
-# Root check
+# Проверка прав root
 #
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -120,7 +131,7 @@ fi
 
 
 #
-# Dependency check
+# Проверка зависимостей
 #
 
 if ! command -v git >/dev/null 2>&1 &&
@@ -148,7 +159,7 @@ fi
 
 
 #
-# Download sources
+# Загрузка исходных файлов
 #
 
 bootstrap_log_info \
@@ -199,7 +210,7 @@ fi
 
 
 #
-# Validate source
+# Проверка исходных файлов
 #
 
 if [[ ! -f "${SOURCE_DIR}/installer/install.sh" ]]; then
@@ -214,7 +225,7 @@ fi
 
 
 #
-# Prepare permissions
+# Подготовка прав доступа
 #
 
 bootstrap_log_info \
@@ -230,7 +241,7 @@ find "${SOURCE_DIR}" \
 
 
 #
-# Start installer
+# Запуск установщика
 #
 
 bootstrap_log_info \

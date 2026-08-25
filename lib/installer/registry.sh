@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# API реестра модулей установки v1.3
-# Путь: lib/installer/registry.sh
+# API реестра модулей установки
+#
+# Путь:
+#   lib/installer/registry.sh
 #
 # Назначение:
 #   Управляет каталогом доступных модулей LSM.
@@ -80,6 +82,8 @@ declare -A LSM_MODULE_CATEGORY
 
 declare -A LSM_MODULE_DEPENDENCIES
 
+declare -A LSM_MODULE_DEFAULT
+
 
 
 #
@@ -130,6 +134,8 @@ registry_clear()
     LSM_MODULE_CATEGORY=()
 
     LSM_MODULE_DEPENDENCIES=()
+
+    LSM_MODULE_DEFAULT=()
 
 
     LSM_MODULE_EXISTS=()
@@ -231,6 +237,8 @@ registry_add()
     LSM_MODULE_CATEGORY["${module}"]="${MODULE_CATEGORY:-unknown}"
 
     LSM_MODULE_DEPENDENCIES["${module}"]="${MODULE_DEPENDENCIES:-}"
+
+    LSM_MODULE_DEFAULT["${module}"]="${MODULE_DEFAULT:-no}"
 
 }
 

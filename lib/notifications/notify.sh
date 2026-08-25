@@ -2,7 +2,10 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Диспетчер уведомлений с защитой от спама (Throttling) и логикой восстановления
-# Путь: lib/notifications/notify.sh
+#
+# Путь:
+#   lib/notifications/notify.sh
+#
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -140,6 +143,43 @@ notify() {
 
         dispatch_raw_notification "${subject}" "${full_msg}"
     fi
+}
+
+#
+# Прямая отправка информационного сообщения.
+#
+# Использование: notify_info "имя_модуля" "Сообщение"
+#
+# В отличие от notify() НЕ использует throttle-state
+# и не создает state-файл. Предназначена для событий,
+# не являющихся авариями (например, успешный вход по SSH).
+#
+
+notify_info() {
+    local module="${1:-unknown}"
+    local message="${2:-}"
+    local hostname
+    hostname="$(hostname -f 2>/dev/null || hostname)"
+
+    local subject="🔵 [INFO] [${hostname}] Модуль: ${module}"
+
+    dispatch_raw_notification "${subject}" "${message}"
+}
+
+#
+# Прямая отправка готового сообщения без обработки состояния.
+#
+# Использование: notify_raw "Тема" "Сообщение"
+#
+# Применяется для контента, который должен доставляться
+# всегда независимо от кулдаунов (например, ежедневный отчет).
+#
+
+notify_raw() {
+    local subject="${1:-Уведомление LSM}"
+    local message="${2:-}"
+
+    dispatch_raw_notification "${subject}" "${message}"
 }
 
 # Вызов при прямом запуске файла из CLI

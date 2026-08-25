@@ -2,7 +2,13 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Управление конфигурационными файлами
-# Путь: lib/core/config.sh
+#
+# Путь:
+#   lib/core/config.sh
+#
+# Назначение:
+#   Загрузка, проверка и установка конфигурационных файлов LSM.
+#
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -14,7 +20,7 @@ readonly LSM_CONFIG_LOADED=1
 
 
 #
-# Paths
+# Пути
 #
 
 : "${LSM_CONFIG_DIR:=/etc/lsm}"
@@ -28,7 +34,7 @@ readonly LSM_CONFIG_LOADED=1
 
 
 #
-# Check config
+# Проверка конфигурации
 #
 
 config_exists()
@@ -43,7 +49,7 @@ config_exists()
 
 
 #
-# Safe source
+# Безопасное подключение файла
 #
 
 _config_source()
@@ -71,7 +77,7 @@ _config_source()
 
 
 #
-# Load single config
+# Загрузка одного файла конфигурации
 #
 
 load_config()
@@ -104,7 +110,7 @@ load_config()
 
 
 #
-# Load all configs
+# Загрузка всех файлов конфигурации
 #
 
 load_all_configs()
@@ -149,7 +155,7 @@ load_all_configs()
 
 
 #
-# Validation
+# Валидация конфигурации
 #
 
 validate_config()
@@ -186,7 +192,7 @@ validate_config()
 
 
 #
-# Create config directory
+# Создание каталога конфигурации
 #
 
 create_config_dir()
@@ -201,7 +207,7 @@ create_config_dir()
 
 
 #
-# Install default config
+# Установка конфигурации по умолчанию
 #
 
 install_default_config()

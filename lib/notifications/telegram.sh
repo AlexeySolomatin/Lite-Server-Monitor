@@ -2,18 +2,26 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Модуль отправки уведомлений в Telegram Bot API
-# Путь: lib/notifications/telegram.sh
+#
+# Путь:
+#   lib/notifications/telegram.sh
+#
 # ==============================================================================
 
 set -Eeuo pipefail
 
 # Загрузка файлов конфигурации и секретов
-CONFIG_FILE="${NOTIFICATIONS_FILE:-/etc/lsm/notifications.conf}"
+# Основной конфиг: /etc/lsm/config.conf
+# Резервный вариант (устаревший): /etc/lsm/notifications.conf
+CONFIG_FILE="${NOTIFICATIONS_FILE:-/etc/lsm/config.conf}"
 SECRETS_FILE="${SECRETS_FILE:-/etc/lsm/secrets.conf}"
 
 if [[ -f "${CONFIG_FILE}" ]]; then
     # shellcheck source=/dev/null
     source "${CONFIG_FILE}"
+elif [[ -f "/etc/lsm/notifications.conf" ]]; then
+    # shellcheck source=/dev/null
+    source "/etc/lsm/notifications.conf"
 fi
 
 if [[ -f "${SECRETS_FILE}" ]]; then

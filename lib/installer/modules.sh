@@ -2,7 +2,10 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Библиотека управления модулями
-# Путь: lib/installer/modules.sh
+#
+# Путь:
+#   lib/installer/modules.sh
+#
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -311,7 +314,42 @@ modules_remove()
 
 
 #
+# Имя systemd-таймера модуля.
+#
+# Большинство модулей используют пару
+#
+#   lsm-<module>.service / lsm-<module>.timer
+#
+# Исключение — системный модуль core,
+# который устанавливает lsm-report.timer.
+#
+
+modules_timer_name()
+{
+    local module="${1:-}"
+
+    modules_validate_name "${module}" || return 1
+
+    case "${module}" in
+
+        core)
+            printf '%s\n' "lsm-report.timer"
+            ;;
+
+        *)
+            printf '%s\n' "lsm-${module}.timer"
+            ;;
+
+    esac
+}
+
+
+
+#
 # Включение модуля
+#
+# Модуль включается запуском его systemd-таймера.
+# Отдельные скрипты enable.sh не используются.
 #
 
 modules_enable()
@@ -340,15 +378,27 @@ modules_enable()
 
 
 
-    local module_dir
-    module_dir="$(modules_path "${module}")"
+    if ! modules_is_installed "${module}"; then
+
+        log_error "${MODULES_COMPONENT}" \
+            "Модуль не установлен, сначала выполните установку: ${module}"
+
+        return 1
+    fi
 
 
 
-    if [[ ! -x "${module_dir}/enable.sh" ]]; then
+    local timer
+    timer="$(modules_timer_name "${module}")"
+
+
+
+    if ! systemctl list-unit-files "${timer}" >/dev/null 2>&1 \
+        || [[ -z "$(systemctl list-unit-files "${timer}" --no-legend 2>/dev/null || true)" ]]
+    then
 
         log_warn "${MODULES_COMPONENT}" \
-            "enable.sh отсутствует: ${module}"
+            "Таймер модуля отсутствует: ${timer}"
 
         return 1
     fi
@@ -360,7 +410,7 @@ modules_enable()
 
 
 
-    if "${module_dir}/enable.sh"; then
+    if systemctl enable --now "${timer}"; then
 
         log_success "${MODULES_COMPONENT}" \
             "Модуль включен: ${module}"
@@ -379,6 +429,9 @@ modules_enable()
 
 #
 # Отключение модуля
+#
+# Модуль отключается остановкой таймера и службы.
+# Установка и конфигурация при этом сохраняются.
 #
 
 modules_disable()
@@ -407,18 +460,10 @@ modules_disable()
 
 
 
-    local module_dir
-    module_dir="$(modules_path "${module}")"
+    local timer
+    timer="$(modules_timer_name "${module}")"
 
-
-
-    if [[ ! -x "${module_dir}/disable.sh" ]]; then
-
-        log_warn "${MODULES_COMPONENT}" \
-            "disable.sh отсутствует: ${module}"
-
-        return 1
-    fi
+    local service="${timer%.timer}.service"
 
 
 
@@ -427,19 +472,18 @@ modules_disable()
 
 
 
-    if "${module_dir}/disable.sh"; then
+    systemctl disable --now "${timer}" 2>/dev/null || true
 
-        log_success "${MODULES_COMPONENT}" \
-            "Модуль отключен: ${module}"
 
-    else
+    systemctl stop "${service}" 2>/dev/null || true
 
-        log_error "${MODULES_COMPONENT}" \
-            "Ошибка отключения модуля: ${module}"
 
-        return 1
 
-    fi
+    log_success "${MODULES_COMPONENT}" \
+        "Модуль отключен: ${module}"
+
+
+    return 0
 }
 
 

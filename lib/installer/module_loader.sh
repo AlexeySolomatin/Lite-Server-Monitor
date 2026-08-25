@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Metadata Loader API v1.2
-# Путь: lib/installer/module_loader.sh
+# Загрузчик метаданных модулей
+#
+# Путь:
+#   lib/installer/module_loader.sh
+#
+# Назначение:
+#   Загрузка и предоставление метаданных из manifest.conf модулей.
+#
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -18,7 +24,7 @@ readonly MODULE_LOADER_COMPONENT="MODULE_LOADER"
 
 
 #
-# Paths
+# Пути
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -30,7 +36,7 @@ export LSM_MODULES_DIR
 
 
 #
-# Metadata
+# Метаданные модуля
 #
 
 MODULE_ID=""
@@ -44,7 +50,7 @@ MODULE_DEFAULT=""
 
 
 #
-# Init
+# Инициализация
 #
 
 module_loader_init()
@@ -68,7 +74,7 @@ module_loader_init()
 
 
 #
-# Clear metadata
+# Очистка метаданных
 #
 
 module_clear_metadata()
@@ -87,7 +93,7 @@ module_clear_metadata()
 
 
 #
-# Load manifest
+# Загрузка manifest.conf
 #
 
 module_load_manifest()
@@ -147,7 +153,7 @@ module_load_manifest()
 
 
 #
-# List modules
+# Список модулей
 #
 
 module_loader_list()
@@ -169,7 +175,7 @@ module_loader_list()
 
 
 #
-# Getters
+# Получение метаданных
 #
 
 module_get_name()
@@ -219,7 +225,7 @@ module_has_manifest()
 
 
 #
-# Information output
+# Вывод информации о модуле
 #
 
 module_info()

@@ -10,7 +10,7 @@ set -Eeuo pipefail
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LSM_ROOT="${LSM_ROOT:-/opt/lsm}"
 
-# Подключение базовых библиотек и хелперов установки!
+# Подключение базовых библиотек и хелперов установки
 if [[ -f "${LSM_ROOT}/lib/core/common.sh" ]]; then
     # shellcheck source=/dev/null
     source "${LSM_ROOT}/lib/core/common.sh"
@@ -36,15 +36,11 @@ fi
 deploy_create_directory "${LSM_ROOT}/modules/docker" "755" "root" "root"
 deploy_create_directory "/etc/lsm/modules" "755" "root" "root"
 
-# 2. Установка исполняемого скрипта проверки
-if [[ -f "${MODULE_DIR}/files/check_docker.sh" ]]; then
-    deploy_install_file \
-        "${MODULE_DIR}/files/check_docker.sh" \
-        "${LSM_ROOT}/modules/docker/check_docker.sh" \
-        "755" "root" "root"
-fi
+# Примечание: исполняемый скрипт files/check_docker.sh попадает в
+# /opt/lsm/modules/docker/files/ при копировании всего дерева проекта.
+# Плоские копии check_*.sh в корень каталога модуля не создаются.
 
-# 3. Установка юнитов Systemd
+# 2. Установка юнитов Systemd
 if [[ -f "${MODULE_DIR}/files/lsm-docker.service" ]]; then
     deploy_install_file \
         "${MODULE_DIR}/files/lsm-docker.service" \
@@ -59,7 +55,7 @@ if [[ -f "${MODULE_DIR}/files/lsm-docker.timer" ]]; then
         "644" "root" "root"
 fi
 
-# 4. Установка конфигурационного файла (без перезаписи существующего)
+# 3. Установка конфигурационного файла (без перезаписи существующего)
 if [[ -f "${MODULE_DIR}/templates/docker.conf" ]]; then
     if [[ ! -f "/etc/lsm/modules/docker.conf" ]]; then
         deploy_install_file \
@@ -75,7 +71,7 @@ if [[ -f "${MODULE_DIR}/templates/docker.conf" ]]; then
     fi
 fi
 
-# 5. Перезагрузка конфигурации systemd и активация таймера
+# 4. Перезагрузка конфигурации systemd и активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable --now lsm-docker.timer || true

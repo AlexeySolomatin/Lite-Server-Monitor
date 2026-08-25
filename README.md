@@ -150,10 +150,10 @@ Lite Server Monitor **не является заменой**:
 - Disk Monitor
 - SMART Monitor
 - RAID Monitor
-- System Monitor
+- System Monitor (CPU / RAM / диск)
 - Temperature Monitor
 - UPS Monitor
-- Daily Health Report
+- Docker Monitor
 
 ## Безопасность
 
@@ -164,6 +164,8 @@ Lite Server Monitor **не является заменой**:
 
 - Telegram
 - Email
+
+Подробное описание каждого модуля — в `modules/<имя>/README.md`.
 
 ---
 
@@ -177,7 +179,8 @@ curl -fsSL https://raw.githubusercontent.com/AlexeySolomatin/Lite-Server-Monitor
 
 Во время установки мастер предложит:
 
-- выбрать необходимые модули;
+- выбрать необходимые модули в интерактивном чек-листе
+  (цифра — отметить пункт `[X]`, 0 — подтвердить выбор);
 - настроить Telegram;
 - настроить Email;
 - использовать готовые шаблоны конфигурации;
@@ -190,28 +193,25 @@ curl -fsSL https://raw.githubusercontent.com/AlexeySolomatin/Lite-Server-Monitor
 ```text
 Lite-Server-Monitor/
 
-├── bootstrap.sh
-│
-├── installer/
-│   ├── install.sh
-│   ├── update.sh
-│   └── uninstall.sh
+├── bootstrap.sh        Загрузчик установки
 │
 ├── bin/
-│   └── lsm
+│   └── lsm             Главная CLI-точка входа
+│
+├── commands/           Реализации команд CLI
+│
+├── installer/          Установщик, мастер настройки (steps/, screens/)
 │
 ├── lib/
+│   ├── core/           Базовые библиотеки LSM
+│   ├── installer/      Логика установки
+│   └── notifications/  Единая система уведомлений
 │
-├── scripts/
-│   ├── monitoring/
-│   ├── security/
-│   └── notifications/
+├── modules/            Модули мониторинга (modules/<имя>/README.md)
 │
-├── templates/
+├── templates/          Шаблоны конфигурации
 │
-├── docs/
-│
-└── tests/
+└── docs/               Документация
 ```
 
 ---
@@ -226,10 +226,9 @@ Lite-Server-Monitor/
 | `/etc/lsm` | Конфигурация |
 | `/var/lib/lsm` | State-файлы |
 | `/var/log/lsm` | Логи |
-| `/run/lsm` | Lock-файлы |
 | `/usr/local/bin/lsm` | CLI |
 
-Подробная информация приведена в документе **INSTALLATION_LAYOUT_RU.md**.
+Подробная информация приведена в документе **docs/INSTALLATION_LAYOUT.md**.
 
 ---
 
@@ -244,7 +243,10 @@ lsm uninstall
 lsm doctor
 lsm status
 lsm report
+lsm modules
+lsm config
 lsm version
+lsm help
 ```
 
 ---
@@ -274,20 +276,3 @@ lsm version
 Проект находится в активной разработке.
 
 До выхода версии **1.0.0** возможны изменения внутренней архитектуры и процесса установки.
-
----
-
-# Если uninstall сломан, делаем ручную очистку:
-
-```
-sudo systemctl stop 'lsm-*' 2>/dev/null || true; sudo rm -f /etc/systemd/system/lsm-*.{service,timer} && sudo systemctl daemon-reload && sudo rm -rf /opt/lsm /etc/lsm /var/log/lsm /var/lib/lsm /usr/local/bin/lsm && hash -r
-
-```
-
-# Проверка файлов LSM на наличие ограждений
-
-Выполнить:
-
-```bash
-cd /opt/lsm && grep -RIl --include="*.sh" --exclude-dir=.git '```' . 2>/dev/null || true
-```

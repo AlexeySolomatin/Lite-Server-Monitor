@@ -275,7 +275,7 @@ if [[ "${SEND_NOTIFICATION}" == "true" ]]; then
 
 
 
-    if [[ ! -x "${notify_script}" ]]; then
+    if [[ ! -f "${notify_script}" ]]; then
 
         log_error \
             "${REPORT_COMPONENT}" \
@@ -287,9 +287,34 @@ if [[ "${SEND_NOTIFICATION}" == "true" ]]; then
 
 
 
-    if ! "${notify_script}" \
-        "daily_report" \
-        "OK" \
+    # shellcheck source=/dev/null
+    source "${notify_script}"
+
+
+
+    if ! declare -f notify_raw >/dev/null 2>&1; then
+
+        log_error \
+            "${REPORT_COMPONENT}" \
+            "Функция отправки уведомлений недоступна."
+
+        exit 1
+
+    fi
+
+
+
+    #
+    # Отчет доставляется всегда и не участвует
+    # в логике подавления алертов (throttling),
+    # поэтому используется notify_raw.
+    #
+
+    local_hostname="$(hostname -f 2>/dev/null || hostname)"
+
+
+    if ! notify_raw \
+        "📋 Ежедневный отчет LSM [${local_hostname}]" \
         "${report_content}"
     then
 

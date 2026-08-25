@@ -26,25 +26,13 @@ if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
     source "${LSM_ROOT}/lib/installer/deploy.sh"
 fi
 
-if declare -f log_info >/dev/null 2>&1; then
-    log_info "INSTALL" "Установка модуля мониторинга ИБП (UPS)..."
-else
-    echo "Установка модуля мониторинга ИБП (UPS)..."
-fi
+log_info "UPS" "Установка модуля мониторинга ИБП (UPS)..."
 
 # 1. Создание целевых директорий
-deploy_create_directory "${LSM_ROOT}/modules/ups" "755" "root" "root"
 deploy_create_directory "/etc/lsm/modules" "755" "root" "root"
 
-# 2. Установка исполняемого скрипта проверки
-if [[ -f "${MODULE_DIR}/files/check_ups.sh" ]]; then
-    deploy_install_file \
-        "${MODULE_DIR}/files/check_ups.sh" \
-        "${LSM_ROOT}/modules/ups/check_ups.sh" \
-        "755" "root" "root"
-fi
-
-# 3. Установка юнитов Systemd
+# 2. Установка юнитов Systemd
+#    Исполняемый файл уже развернут в /opt/lsm/modules/ups/files/check_ups.sh
 if [[ -f "${MODULE_DIR}/files/lsm-ups.service" ]]; then
     deploy_install_file \
         "${MODULE_DIR}/files/lsm-ups.service" \
@@ -59,7 +47,7 @@ if [[ -f "${MODULE_DIR}/files/lsm-ups.timer" ]]; then
         "644" "root" "root"
 fi
 
-# 4. Установка конфигурационного файла (без перезаписи существующего)
+# 3. Установка конфигурационного файла (без перезаписи существующего)
 if [[ -f "${MODULE_DIR}/templates/ups.conf" ]]; then
     if [[ ! -f "/etc/lsm/modules/ups.conf" ]]; then
         deploy_install_file \
@@ -67,22 +55,14 @@ if [[ -f "${MODULE_DIR}/templates/ups.conf" ]]; then
             "/etc/lsm/modules/ups.conf" \
             "640" "root" "root"
     else
-        if declare -f log_warn >/dev/null 2>&1; then
-            log_warn "INSTALL" "Конфигурационный файл /etc/lsm/modules/ups.conf уже существует, пропуск перезаписи."
-        else
-            echo "Предупреждение: Конфигурационный файл /etc/lsm/modules/ups.conf уже существует, пропуск перезаписи." >&2
-        fi
+        log_warn "UPS" "Конфигурационный файл /etc/lsm/modules/ups.conf уже существует, пропуск перезаписи."
     fi
 fi
 
-# 5. Перезагрузка конфигурации systemd и активация таймера
+# 4. Перезагрузка конфигурации systemd и активация таймера
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
     systemctl enable --now lsm-ups.timer || true
 fi
 
-if declare -f log_success >/dev/null 2>&1; then
-    log_success "INSTALL" "Модуль мониторинга ИБП (UPS) успешно установлен."
-else
-    echo "Модуль мониторинга ИБП (UPS) успешно установлен."
-fi
+log_success "UPS" "Модуль мониторинга ИБП (UPS) успешно установлен."

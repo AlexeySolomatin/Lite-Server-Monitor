@@ -16,13 +16,42 @@ fi
 export LSM_ROOT
 
 #
-# Обязательные базовые библиотеки (согласно UNINSTALL CONTRACT)
+# Базовые библиотеки (подключаются условно)
 #
-source "${LSM_ROOT}/lib/core/logging.sh"
-source "${LSM_ROOT}/lib/installer/deploy.sh"
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/logging.sh"
+fi
+
+if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/installer/deploy.sh"
+fi
+
+#
+# Резервные функции журналирования на случай,
+# если библиотеки ядра недоступны
+#
+
+if ! declare -F log_info >/dev/null 2>&1; then
+    log_info() { printf '%s\n' "$*"; }
+fi
+
+if ! declare -F log_warn >/dev/null 2>&1; then
+    log_warn() { printf '%s\n' "$*" >&2; }
+fi
+
+if ! declare -F log_error >/dev/null 2>&1; then
+    log_error() { printf '%s\n' "$*" >&2; }
+fi
+
+if ! declare -F log_success >/dev/null 2>&1; then
+    log_success() { printf '%s\n' "$*"; }
+fi
 
 readonly MODULE_NAME="docker"
 readonly LOG_COMPONENT="DOCKER"
+readonly STATE_DIR="/var/lib/lsm/state"
 
 #
 # 1. Остановка и отключение systemd
@@ -54,11 +83,17 @@ fi
 deploy_remove_file "/etc/lsm/modules/${MODULE_NAME}.conf"
 
 #
-# 5. Удаление директории модуля
+# 5. Удаление файлов состояния и блокировки
+#
+deploy_remove_file "${STATE_DIR}/${MODULE_NAME}.state"
+deploy_remove_file "${STATE_DIR}/${MODULE_NAME}_check.lock"
+
+#
+# 6. Удаление директории модуля
 #
 deploy_remove_directory "${LSM_ROOT}/modules/${MODULE_NAME}"
 
 #
-# 6. Финальный лог
+# 7. Финальный лог
 #
 log_success "${LOG_COMPONENT}" "Модуль мониторинга Docker успешно удалён."

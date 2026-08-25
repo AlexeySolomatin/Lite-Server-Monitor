@@ -59,7 +59,36 @@ export LANG=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+
+
+
+#
+# Библиотека журналирования
+#
+
+if [[ -f "${PROJECT_ROOT}/lib/core/common.sh" ]]; then
+
+    # shellcheck source=/dev/null
+    source "${PROJECT_ROOT}/lib/core/common.sh"
+
+fi
+
+if [[ -f "${PROJECT_ROOT}/lib/core/logging.sh" ]]; then
+
+    # shellcheck source=/dev/null
+    source "${PROJECT_ROOT}/lib/core/logging.sh"
+
+fi
+
+if ! declare -F log_info >/dev/null 2>&1; then
+
+    log_info()
+    {
+        printf '%s\n' "$*"
+    }
+
+fi
 
 
 
@@ -592,31 +621,16 @@ disk_status()
 
 
 
-    printf 'Disk: %s\n' "${status}"
+    printf 'Диски: %s\n' "${status}"
 
 
 
-    case "${status}" in
+    #
+    # Статус — информационный режим:
+    # предупреждения НЕ влияют на код выхода.
+    #
 
-        OK)
-
-            return 0
-
-            ;;
-
-        WARNING|CRITICAL)
-
-            return 1
-
-            ;;
-
-        *)
-
-            return 2
-
-            ;;
-
-    esac
+    return 0
 
 }
 
@@ -630,7 +644,7 @@ disk_report()
 {
     if ! disk_require_df; then
 
-        printf 'Disk monitor: unavailable\n'
+        printf 'Мониторинг дисков: недоступен\n'
 
         return 1
 
@@ -640,7 +654,7 @@ disk_report()
 
     if ! disk_validate_config; then
 
-        printf 'Disk monitor: invalid configuration\n'
+        printf 'Мониторинг дисков: некорректная конфигурация\n'
 
         return 1
 
@@ -661,38 +675,38 @@ disk_report()
 
 
 
-    printf 'Disk Monitor\n'
+    printf 'Мониторинг дисков\n'
 
-    printf '------------\n'
+    printf '-----------------\n'
 
-    printf 'Warning threshold : %s%%\n' "${WARNING}"
+    printf 'Порог предупреждения : %s%%\n' "${WARNING}"
 
-    printf 'Critical threshold: %s%%\n' "${CRITICAL}"
+    printf 'Критический порог    : %s%%\n' "${CRITICAL}"
 
 
 
     if [[ -n "${IGNORE_MOUNTS}" ]]; then
 
-        printf 'Ignored mounts    : %s\n' "${IGNORE_MOUNTS}"
+        printf 'Игнорируемые точки   : %s\n' "${IGNORE_MOUNTS}"
 
     else
 
-        printf 'Ignored mounts    : none\n'
+        printf 'Игнорируемые точки   : нет\n'
 
     fi
 
 
 
-    printf 'Status            : %s\n' "${status}"
+    printf 'Статус               : %s\n' "${status}"
 
 
 
     printf '\n'
 
     printf '%-35s %10s %12s\n' \
-        "Mount point" \
-        "Usage" \
-        "State"
+        "Точка монтирования" \
+        "Занято" \
+        "Состояние"
 
 
 
@@ -954,7 +968,13 @@ mkdir -p "${STATE_DIR}"
 #
 
 (
-    flock -n 200 || exit 0
+    if ! flock -n 200; then
+
+        log_info "DISK" "Пропуск: предыдущая проверка еще выполняется."
+
+        exit 0
+
+    fi
 
     main
 

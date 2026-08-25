@@ -16,19 +16,51 @@ fi
 export LSM_ROOT
 
 #
-# Базовые библиотеки (согласно UNINSTALL CONTRACT)
+# Базовые библиотеки (подключаются условно)
 #
-source "${LSM_ROOT}/lib/core/logging.sh"
-source "${LSM_ROOT}/lib/installer/deploy.sh"
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/logging.sh"
+fi
+
+if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/installer/deploy.sh"
+fi
+
+#
+# Резервные функции журналирования на случай,
+# если библиотеки ядра недоступны
+#
+
+if ! declare -F log_info >/dev/null 2>&1; then
+    log_info() { printf '%s\n' "$*"; }
+fi
+
+if ! declare -F log_warn >/dev/null 2>&1; then
+    log_warn() { printf '%s\n' "$*" >&2; }
+fi
+
+if ! declare -F log_error >/dev/null 2>&1; then
+    log_error() { printf '%s\n' "$*" >&2; }
+fi
+
+if ! declare -F log_success >/dev/null 2>&1; then
+    log_success() { printf '%s\n' "$*"; }
+fi
 
 readonly MODULE_NAME="login"
 readonly LOG_COMPONENT="LOGIN"
+readonly STATE_DIR="/var/lib/lsm/state"
 
 #
 # 1. Остановка и отключение systemd
 #
 if command -v systemctl >/dev/null 2>&1; then
+    # Сначала останавливаем и отключаем таймер (избегаем warning от systemd)
     systemctl disable --now "lsm-${MODULE_NAME}.timer" 2>/dev/null || true
+
+    # останавливаем службу, если она выполнялась в данный момент
     systemctl stop "lsm-${MODULE_NAME}.service" 2>/dev/null || true
 fi
 
@@ -39,7 +71,7 @@ deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.service"
 deploy_remove_file "/etc/systemd/system/lsm-${MODULE_NAME}.timer"
 
 #
-# 3. Перезагрузка конфигурации systemd (ПОСЛЕ удаления файлов unit-ов)
+# 3. Перезагрузка конфигурации systemd (строго ПОСЛЕ удаления файлов unit-ов)
 #
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload 2>/dev/null || true
@@ -51,11 +83,22 @@ fi
 deploy_remove_file "/etc/lsm/modules/${MODULE_NAME}.conf"
 
 #
-# 5. Удаление директории модуля
+# 5. Удаление файлов состояния и блокировки
+#
+deploy_remove_file "${STATE_DIR}/login_seen"
+deploy_remove_file "${STATE_DIR}/login_check.lock"
+deploy_remove_file "${STATE_DIR}/${MODULE_NAME}.state"
+
+# Устаревшие файлы дедупликации предыдущих версий модуля
+deploy_remove_file "${STATE_DIR}/login_last"
+deploy_remove_file "${STATE_DIR}/login_failed_last"
+
+#
+# 6. Удаление директории модуля
 #
 deploy_remove_directory "${LSM_ROOT}/modules/${MODULE_NAME}"
 
 #
-# 6. Финальный лог
+# 7. Финальный лог
 #
 log_success "${LOG_COMPONENT}" "Модуль контроля входов пользователей успешно удалён."

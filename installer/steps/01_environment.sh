@@ -1,9 +1,25 @@
 #!/usr/bin/env bash
-#
-# -----------------------------------------------------------------------------
+# ==============================================================================
 # Lite Server Monitor (LSM)
-# Installation Step 01 - Environment Check
-# -----------------------------------------------------------------------------
+# Шаг 01: Проверка окружения
+#
+# Путь:
+#   installer/steps/01_environment.sh
+#
+# Назначение:
+#   Проверка системных требований перед установкой LSM:
+#
+#   - права суперпользователя;
+#   - поддерживаемая операционная система;
+#   - версия Bash;
+#   - наличие apt-get;
+#   - архитектура процессора;
+#   - доступ в Интернет;
+#   - объем оперативной памяти;
+#   - свободное дисковое пространство;
+#   - права доступа к системным каталогам.
+#
+# ==============================================================================
 
 set -Eeuo pipefail
 
@@ -15,18 +31,18 @@ readonly ENV_COMPONENT="ENVIRONMENT"
 step_environment()
 {
 
-    print_section "Environment Check"
+    print_section "Проверка окружения"
 
 
 
     #
-    # Root
+    # Права суперпользователя
     #
 
     if ! is_root; then
 
         log_error "${ENV_COMPONENT}" \
-            "This installer must be run as root."
+            "Установщик необходимо запускать от имени root."
 
         return 1
 
@@ -34,18 +50,18 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "Running as root."
+        "Запуск выполнен от имени root."
 
 
 
     #
-    # Supported OS
+    # Поддерживаемая операционная система
     #
 
     if ! is_supported_os; then
 
         log_error "${ENV_COMPONENT}" \
-            "Unsupported operating system."
+            "Неподдерживаемая операционная система."
 
         return 1
 
@@ -53,18 +69,18 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "Supported operating system detected."
+        "Обнаружена поддерживаемая операционная система."
 
 
 
     #
-    # Bash
+    # Версия Bash
     #
 
     if (( BASH_VERSINFO[0] < 5 )); then
 
         log_error "${ENV_COMPONENT}" \
-            "Bash 5.0 or newer is required."
+            "Требуется Bash версии 5.0 или новее."
 
         return 1
 
@@ -72,18 +88,18 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "Bash version: ${BASH_VERSION}"
+        "Версия Bash: ${BASH_VERSION}"
 
 
 
     #
-    # APT
+    # Пакетный менеджер APT
     #
 
     if ! command_exists apt-get; then
 
         log_error "${ENV_COMPONENT}" \
-            "apt-get not found."
+            "apt-get не найден."
 
         return 1
 
@@ -91,12 +107,12 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "APT package manager found."
+        "Пакетный менеджер APT найден."
 
 
 
     #
-    # Architecture
+    # Архитектура
     #
 
     local architecture
@@ -109,7 +125,7 @@ step_environment()
         x86_64|aarch64)
 
             log_success "${ENV_COMPONENT}" \
-                "Supported architecture: ${architecture}"
+                "Поддерживаемая архитектура: ${architecture}"
 
             ;;
 
@@ -117,7 +133,7 @@ step_environment()
         *)
 
             log_error "${ENV_COMPONENT}" \
-                "Unsupported architecture: ${architecture}"
+                "Неподдерживаемая архитектура: ${architecture}"
 
             return 1
 
@@ -128,21 +144,21 @@ step_environment()
 
 
     #
-    # Internet
+    # Интернет
     #
 
     if has_internet; then
 
 
         log_success "${ENV_COMPONENT}" \
-            "Internet connection available."
+            "Интернет-соединение доступно."
 
 
     else
 
 
         log_warn "${ENV_COMPONENT}" \
-            "Internet connection unavailable."
+            "Интернет-соединение недоступно."
 
 
     fi
@@ -150,7 +166,7 @@ step_environment()
 
 
     #
-    # Memory
+    # Оперативная память
     #
 
     local memory_mb
@@ -168,7 +184,7 @@ step_environment()
 
 
         log_error "${ENV_COMPONENT}" \
-            "At least 512 MB RAM is required. Current: ${memory_mb} MB"
+            "Требуется не менее 512 МБ ОЗУ. Доступно: ${memory_mb} МБ"
 
 
         return 1
@@ -178,12 +194,12 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "Memory available: ${memory_mb} MB"
+        "Доступно ОЗУ: ${memory_mb} МБ"
 
 
 
     #
-    # Disk
+    # Дисковое пространство
     #
 
     local free_mb
@@ -203,7 +219,7 @@ step_environment()
 
 
         log_error "${ENV_COMPONENT}" \
-            "At least 1 GB free disk space is required. Current: ${free_mb} MB"
+            "Требуется не менее 1 ГБ свободного дискового пространства. Доступно: ${free_mb} МБ"
 
 
         return 1
@@ -213,12 +229,12 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "Free disk space: ${free_mb} MB"
+        "Свободно на диске: ${free_mb} МБ"
 
 
 
     #
-    # Writable directories
+    # Каталоги, доступные для записи
     #
 
     for dir in /opt /etc /var; do
@@ -228,7 +244,7 @@ step_environment()
 
 
             log_error "${ENV_COMPONENT}" \
-                "Directory is not writable: ${dir}"
+                "Каталог недоступен для записи: ${dir}"
 
 
             return 1
@@ -242,16 +258,16 @@ step_environment()
 
 
     log_success "${ENV_COMPONENT}" \
-        "Filesystem permissions OK."
+        "Права доступа к файловой системе в порядке."
 
 
 
     #
-    # Environment completed
+    # Проверка окружения завершена
     #
 
     log_success "${ENV_COMPONENT}" \
-        "Environment check completed successfully."
+        "Проверка окружения успешно завершена."
 
 
     return 0

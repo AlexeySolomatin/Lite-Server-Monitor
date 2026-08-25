@@ -2,7 +2,13 @@
 # ==============================================================================
 # Lite Server Monitor (LSM)
 # Шаг 02: Установка зависимостей и системных пакетов
-# Путь: installer/steps/02_packages.sh
+#
+# Путь:
+#   installer/steps/02_packages.sh
+#
+# Назначение:
+#   Установка системных пакетов, необходимых для работы LSM.
+#
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -16,7 +22,7 @@ readonly PACKAGES_STEP_COMPONENT="PACKAGES_STEP"
 step_packages()
 {
 
-    print_section "Package Installation"
+    print_section "Установка системных пакетов"
 
 
 
@@ -36,7 +42,7 @@ step_packages()
             "Стандартное обновление APT завершилось ошибкой."
 
 
-        log_info "${PACKAGES_COMPONENT}" \
+        log_info "${PACKAGES_STEP_COMPONENT}" \
             "Очистка списка пакетов и повторная попытка."
 
 

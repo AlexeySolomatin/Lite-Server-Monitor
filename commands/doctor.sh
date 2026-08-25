@@ -270,6 +270,50 @@ doctor_check_modules()
 
 
 
+        #
+        # Системные модули (например core) проверяются
+        # по собственному контракту и не требуют check-скрипта.
+        #
+
+        if declare -f module_api_is_system >/dev/null 2>&1 \
+            && module_api_is_system "${module}"
+        then
+
+            local system_module_dir
+
+
+
+            if module_api_exists "${module}" \
+                && system_module_dir="$(module_api_path "${module}")" \
+                && [[ -f "${system_module_dir}/manifest.conf" ]]
+            then
+
+                log_success \
+                    "${DOCTOR_COMPONENT}" \
+                    "Системный модуль установлен: ${module}"
+
+
+            else
+
+                log_error \
+                    "${DOCTOR_COMPONENT}" \
+                    "Системный модуль поврежден: ${module}"
+
+
+                doctor_error
+
+
+            fi
+
+
+
+            continue
+
+
+        fi
+
+
+
         if module_api_check "${module}"; then
 
 
@@ -370,13 +414,46 @@ doctor_check_docker()
 
     else
 
+        #
+        # Docker является опциональным компонентом.
+        # Если модуль docker не установлен,
+        # недоступность daemon не считается ошибкой LSM.
+        #
 
-        log_error \
-            "${DOCTOR_COMPONENT}" \
-            "Docker daemon недоступен"
+        local docker_module_installed=0
 
 
-        doctor_error
+
+        if declare -f module_api_list_installed >/dev/null 2>&1 \
+            && module_api_list_installed | grep -qx "docker"
+        then
+
+            docker_module_installed=1
+
+        fi
+
+
+
+        if (( docker_module_installed )); then
+
+
+            log_error \
+                "${DOCTOR_COMPONENT}" \
+                "Docker daemon недоступен"
+
+
+            doctor_error
+
+
+        else
+
+
+            log_info \
+                "${DOCTOR_COMPONENT}" \
+                "Docker daemon недоступен (модуль docker не установлен)"
+
+
+        fi
 
 
     fi

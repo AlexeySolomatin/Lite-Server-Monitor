@@ -22,11 +22,56 @@ readonly MODULE_NAME="core"
 readonly LOG_COMPONENT="CORE"
 
 #
-# Базовые библиотеки
+# Базовые библиотеки подключаются условно,
+# чтобы удаление не падало при недоступных файлах библиотек.
 #
 
-source "${LSM_ROOT}/lib/core/logging.sh"
-source "${LSM_ROOT}/lib/installer/deploy.sh"
+if [[ -f "${LSM_ROOT}/lib/core/logging.sh" ]]; then
+
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/core/logging.sh"
+
+fi
+
+if [[ -f "${LSM_ROOT}/lib/installer/deploy.sh" ]]; then
+
+    # shellcheck source=/dev/null
+    source "${LSM_ROOT}/lib/installer/deploy.sh"
+
+fi
+
+#
+# Резервные реализации на случай отсутствия библиотек.
+#
+
+if ! declare -F deploy_remove_file >/dev/null 2>&1; then
+
+    deploy_remove_file()
+    {
+        if [[ -f "${1:-}" || -L "${1:-}" ]]; then
+            rm -f -- "${1}"
+        fi
+    }
+
+fi
+
+if ! declare -F log_info >/dev/null 2>&1; then
+
+    log_info()
+    {
+        printf '[INFO] [%s] %s\n' "${LOG_COMPONENT}" "$*"
+    }
+
+fi
+
+if ! declare -F log_success >/dev/null 2>&1; then
+
+    log_success()
+    {
+        printf '[OK] [%s] %s\n' "${LOG_COMPONENT}" "$*"
+    }
+
+fi
 
 #
 # Пути systemd

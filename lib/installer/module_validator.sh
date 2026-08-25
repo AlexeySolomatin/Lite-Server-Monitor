@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Lite Server Monitor (LSM)
-# Module Validator API v1.4
-# Path: lib/installer/module_validator.sh
+# Валидатор модулей
+#
+# Путь:
+#   lib/installer/module_validator.sh
+#
+# Назначение:
+#   Проверка структуры модулей и их manifest.conf перед установкой.
+#
 # ==============================================================================
 
 set -Eeuo pipefail
@@ -17,7 +23,7 @@ readonly VALIDATOR_COMPONENT="MODULE_VALIDATOR"
 
 
 #
-# Paths
+# Пути
 #
 
 LSM_ROOT="${LSM_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -27,7 +33,7 @@ LSM_MODULES_DIR="${LSM_MODULES_DIR:-${LSM_ROOT}/modules}"
 
 
 #
-# Required manifest fields
+# Обязательные поля manifest.conf
 #
 
 readonly LSM_MANIFEST_REQUIRED_FIELDS=(
@@ -41,7 +47,7 @@ readonly LSM_MANIFEST_REQUIRED_FIELDS=(
 
 
 #
-# Validate module directory
+# Проверка каталога модуля
 #
 
 module_validate_files()
@@ -109,7 +115,7 @@ module_validate_files()
 
 
 #
-# Validate manifest
+# Проверка manifest.conf
 #
 
 module_validate_manifest()
@@ -168,7 +174,7 @@ module_validate_manifest()
 
 
 #
-# Validate dependencies
+# Проверка зависимостей
 #
 
 module_validate_dependencies()
@@ -219,7 +225,7 @@ module_validate_dependencies()
 
 
 #
-# Validate optional files
+# Проверка необязательных файлов
 #
 
 module_validate_optional_files()
@@ -250,7 +256,7 @@ module_validate_optional_files()
 
 
 #
-# Full module validation
+# Полная проверка модуля
 #
 
 module_validate_all()
@@ -287,7 +293,7 @@ module_validate_all()
 
 
 #
-# Validate all modules
+# Проверка всех модулей
 #
 
 module_validate_all_modules()
