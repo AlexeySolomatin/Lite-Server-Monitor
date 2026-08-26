@@ -221,12 +221,16 @@ case "${COMMAND}" in
 
 
     #
-    # Список модулей
+    # Список модулей.
+    #
+    # Права root НЕ требуются: маршрутизация выполняется всегда,
+    # а проверка прав для изменяющих подкоманд (install/remove/
+    # enable/disable) выполняется внутри commands/modules.sh.
+    # Это убирает лишний sudo-перезапуск для read-only команд
+    # (list/available/status) и потерю аргументов на этом хопе.
     #
 
     modules)
-
-        ensure_root
 
         exec bash \
             "${LSM_ROOT}/commands/modules.sh" \

@@ -48,6 +48,61 @@ source "${LSM_ROOT}/lib/installer/modules.sh"
 
 
 #
+# Помощник прав доступа.
+#
+# Read-only подкоманды (list/available/status/help) работают
+# без root. Изменяющие (install/remove/enable/disable) требуют
+# root и при необходимости перезапускают СЕБЯ через sudo,
+# сохраняя все аргументы.
+#
+
+modules_require_root()
+{
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        return 0
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+
+        printf "\033[1;33m[i] [MODULES]\033[0m Для операции '%s' требуются права root. Перезапуск через sudo...\n" \
+            "${1:-}"
+
+        exec sudo -- bash "${BASH_SOURCE[0]}" "$@"
+
+    fi
+
+    log_error \
+        "${MODULES_COMPONENT}" \
+        "Операция '${1:-}' требует прав root, но sudo не найден."
+
+    exit 1
+}
+
+
+
+#
+# Загрузка реестра доступных модулей.
+#
+# Без сканирования массивы реестра пусты:
+# команды available/list вернули бы пустой список.
+#
+
+modules_registry_load()
+{
+    if declare -f registry_load_default >/dev/null 2>&1; then
+
+        registry_load_default
+
+    elif declare -f registry_scan >/dev/null 2>&1; then
+
+        registry_scan
+
+    fi
+}
+
+
+
+#
 # Помощь
 #
 
@@ -115,6 +170,9 @@ EOF
 modules_available()
 {
 
+    modules_registry_load
+
+
     echo
 
     echo "Доступные модули:"
@@ -151,6 +209,9 @@ main()
         list)
 
 
+            modules_registry_load
+
+
             echo
 
             echo "Установленные модули:"
@@ -176,9 +237,13 @@ main()
         install)
 
 
+            modules_require_root "${command}" "$@"
+
+
             if [[ -z "${module}" ]]; then
 
                 log_error \
+                "${MODULES_COMPONENT}" \
                 "Не указан модуль для установки."
 
                 exit 1
@@ -195,9 +260,13 @@ main()
         remove)
 
 
+            modules_require_root "${command}" "$@"
+
+
             if [[ -z "${module}" ]]; then
 
                 log_error \
+                "${MODULES_COMPONENT}" \
                 "Не указан модуль для удаления."
 
                 exit 1
@@ -233,9 +302,13 @@ main()
         enable)
 
 
+            modules_require_root "${command}" "$@"
+
+
             if [[ -z "${module}" ]]; then
 
                 log_error \
+                "${MODULES_COMPONENT}" \
                 "Не указан модуль."
 
                 exit 1
@@ -252,9 +325,13 @@ main()
         disable)
 
 
+            modules_require_root "${command}" "$@"
+
+
             if [[ -z "${module}" ]]; then
 
                 log_error \
+                "${MODULES_COMPONENT}" \
                 "Не указан модуль."
 
                 exit 1
