@@ -9,7 +9,7 @@
 
 > Легкий, модульный инструмент для мониторинга и базовой защиты серверов Ubuntu и Debian.
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue)
+![Version](https://img.shields.io/badge/version-0.4.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%20%7C%20Debian-orange)
 ![Shell](https://img.shields.io/badge/bash-5.x-lightgrey)
@@ -271,7 +271,7 @@ lsm help
 
 # Статус проекта
 
-Текущая версия: <!-- version:start -->0.4.0<!-- version:end -->
+Текущая версия: <!-- version:start -->0.4.1<!-- version:end -->
 
 Проект находится в активной разработке.
 
