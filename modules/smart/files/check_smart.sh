@@ -183,25 +183,39 @@ smart_is_ignored()
 
 smart_list_devices()
 {
+    #
+    # Только физические диски (TYPE=disk): разделы sda1/sda2 и
+    # прочие не должны попадать в отчет и в проверку.
+    #
+
+    if command -v lsblk >/dev/null 2>&1; then
+
+        lsblk -dn -o NAME,TYPE 2>/dev/null \
+            | awk '$2 == "disk" { print "/dev/" $1 }' \
+            | sort \
+            || true
+
+        return 0
+
+    fi
+
+    #
+    # Fallback: find без разделов (sdX / nvmeXnY без цифры на конце).
+    #
+
     find /dev \
         -maxdepth 1 \
         -type b \
         \( \
-            -name "sd*" \
-            -o -name "nvme*" \
-            -o -name "vd*" \
-            -o -name "xvd*" \
+            -name "sd[a-z]" \
+            -o -name "nvme[0-9]n[0-9]" \
+            -o -name "vd[a-z]" \
+            -o -name "xvd[a-z]" \
         \) \
-        ! -name "*loop*" \
-        ! -name "*ram*" \
         2>/dev/null | sort || true
 }
 
 
-#
-# Код выхода smartctl -H для устройства.
-#
-# RC=0; smartctl ... || RC=$? — безопасная схема для set -e.
 #
 
 smart_health_rc()
@@ -217,8 +231,8 @@ smart_health_rc()
 #
 # Температура устройства (только отображение, без алертов).
 #
-# Источник — атрибут 194 (Temperature_Celsius) из таблицы
-# smartctl -A; значение берется из последней колонки.
+# Источник — атрибуты 194 (Temperature_Celsius) или 190
+# (Airflow_Temperature_Celsius) из таблицы smartctl -A;
 # Для NVME используется строка "Temperature:".
 # При неудаче возвращается "н/д".
 #
@@ -238,7 +252,7 @@ smart_get_temperature()
 
     temp="$(
         printf '%s\n' "${output}" |
-        awk '$1 == "194" || $2 == "Temperature_Celsius" { print $NF }' |
+        awk '$1 == "194" || $1 == "190" || $2 == "Temperature_Celsius" { print $NF }' |
         tail -n 1
     )"
 

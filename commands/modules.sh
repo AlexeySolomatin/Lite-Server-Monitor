@@ -91,7 +91,7 @@ modules_registry_load()
 {
     if declare -f registry_load_default >/dev/null 2>&1; then
 
-        registry_load_default
+        registry_load_default quiet
 
     elif declare -f registry_scan >/dev/null 2>&1; then
 

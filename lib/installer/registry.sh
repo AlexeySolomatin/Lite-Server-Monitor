@@ -285,9 +285,24 @@ registry_scan()
 
 
 
-    log_info \
-        "${REGISTRY_COMPONENT}" \
-        "Загружено модулей: ${#LSM_MODULES[@]}"
+    #
+    # quiet-режим: CLI-команды (lsm modules list/available) не должны
+    # выводить служебную INFO-строку среди пользовательского списка.
+    #
+
+    if [[ "${1:-}" == "quiet" ]]; then
+
+        log_debug \
+            "${REGISTRY_COMPONENT}" \
+            "Загружено модулей: ${#LSM_MODULES[@]}"
+
+    else
+
+        log_info \
+            "${REGISTRY_COMPONENT}" \
+            "Загружено модулей: ${#LSM_MODULES[@]}"
+
+    fi
 
 }
 
@@ -300,7 +315,7 @@ registry_scan()
 registry_load_default()
 {
 
-    registry_scan
+    registry_scan "$@"
 
 }
 

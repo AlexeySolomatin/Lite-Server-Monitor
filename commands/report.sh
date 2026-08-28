@@ -359,6 +359,17 @@ fi
 if [[ "${SAVE_REPORT}" == "false" &&
       "${SEND_NOTIFICATION}" == "false" ]]; then
 
+    #
+    # Просмотр в терминале: чистим экран перед отчетом.
+    # В пайпах и при перенаправлении в файл — нет.
+    #
+
+    if [[ -t 1 ]] && command -v clear >/dev/null 2>&1; then
+
+        clear
+
+    fi
+
     printf '%s\n' "${report_content}"
 
 fi

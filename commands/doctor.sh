@@ -176,51 +176,63 @@ doctor_check_systemd()
 
     if ! command -v systemctl >/dev/null 2>&1; then
 
-
         log_warn \
             "${DOCTOR_COMPONENT}" \
             "Systemd отсутствует"
 
-
-
         doctor_warn
 
-
         return 0
-
 
     fi
 
 
 
+    #
+    # Компактная сводка вместо двух сырых таблиц systemctl.
+    #
+    # Подробные таблицы остаются доступны через:
+    #
+    #   systemctl list-unit-files 'lsm-*'
+    #   systemctl list-timers 'lsm-*'
+    #
+
+    local unit_files
+    local timers_total
+    local timers_dead
+    local dead_name
+
+    unit_files="$(systemctl list-unit-files 'lsm-*.service' --no-legend 2>/dev/null | wc -l || echo 0)"
+
+    timers_total="$(systemctl list-timers 'lsm-*.timer' --no-legend 2>/dev/null | wc -l || echo 0)"
+
+    timers_dead="$(systemctl list-timers 'lsm-*.timer' --no-legend 2>/dev/null | awk '$1 == "-" { for (i = 1; i <= NF; i++) if ($i ~ /^lsm-.*\.timer$/) { print $i; break } }' || true)"
+
+
     log_info \
         "${DOCTOR_COMPONENT}" \
-        "Проверка служб LSM"
+        "Systemd: юнитов служб ${unit_files}, таймеров ${timers_total}."
 
 
+    if [[ -n "${timers_dead}" ]]; then
 
-    systemctl list-unit-files \
-        "lsm-*.service" \
-        --no-pager \
-        || true
+        for dead_name in ${timers_dead}; do
 
+            log_warn \
+                "${DOCTOR_COMPONENT}" \
+                "Таймер без расписания (нет NEXT): ${dead_name}"
 
+        done
 
-    echo
+        doctor_warn
 
+    else
 
+        log_success \
+            "${DOCTOR_COMPONENT}" \
+            "Все таймеры имеют расписание запусков."
 
-    log_info \
-        "${DOCTOR_COMPONENT}" \
-        "Проверка таймеров LSM"
-
-
-
-    systemctl list-timers \
-        "lsm-*.timer" \
-        --all \
-        --no-pager \
-        || true
+    fi
 
 }
 
@@ -469,6 +481,18 @@ doctor_check_docker()
 
 run_doctor()
 {
+
+    #
+    # Очистка только в интерактивном терминале:
+    # при пайпах и перенаправлениях управляющие
+    # символы в вывод не попадают.
+    #
+
+    if [[ -t 1 ]] && command -v clear >/dev/null 2>&1; then
+
+        clear
+
+    fi
 
 
     ui_banner
