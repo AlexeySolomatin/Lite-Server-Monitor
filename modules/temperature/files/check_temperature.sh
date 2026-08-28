@@ -181,9 +181,38 @@ temperature_collect()
         TEMP_DATA="$(sensors 2>/dev/null || true)"
 
 
+        #
+        # Температуры дисков (чипы drivetemp) — зона ответственности
+        # модуля smart. Здесь они исключаются, чтобы одна метрика
+        # не приходила из двух модулей.
+        #
+
+        chip_skip=false
+
+
         while IFS= read -r line; do
 
-            [[ "${line}" != *:* ]] && continue
+            if [[ "${line}" != *:* ]]; then
+
+                #
+                # Строка-заголовок чипа: переключаем контекст.
+                #
+
+                if [[ "${line}" =~ ^drivetemp ]]; then
+
+                    chip_skip=true
+
+                elif [[ "${line}" =~ ^[A-Za-z0-9_-]+$ ]]; then
+
+                    chip_skip=false
+
+                fi
+
+                continue
+
+            fi
+
+            [[ "${chip_skip}" == true ]] && continue
 
             name="${line%%:*}"
 

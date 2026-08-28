@@ -238,39 +238,226 @@ EOF
 # Системные показатели
 # ==============================================================================
 
-report_get_system_metrics()
+
+
+# ==============================================================================
+# Визуальный индикатор заполненности.
+#
+# Аргументы:
+#
+#   $1 - процент (0-100, значения больше 100 обрезаются);
+#   $2 - ширина бара в символах (по умолчанию 20).
+#
+# Вывод:
+#
+#   [██████░░░░░░░░░░░░░░]  30%
+# ==============================================================================
+
+report_bar()
 {
+    local pct="${1:-0}"
+    local width="${2:-20}"
 
-    report_section \
-        "Использование оперативной памяти"
+    local i
+    local filled
+    local empty
+    local bar=""
 
+    if [[ ! "${pct}" =~ ^[0-9]+$ ]]; then
 
-
-    if command -v free >/dev/null 2>&1; then
-
-        free -h 2>/dev/null || printf '%s\n' "Нет данных"
-
-    else
-
-        printf '%s\n' "Утилита free недоступна"
+        pct=0
 
     fi
 
+    (( pct > 100 )) && pct=100
 
+    filled=$(( pct * width / 100 ))
+
+    empty=$(( width - filled ))
+
+    for (( i = 0; i < filled; i++ )); do
+
+        bar+="█"
+
+    done
+
+    for (( i = 0; i < empty; i++ )); do
+
+        bar+="░"
+
+    done
+
+    printf '[%s] %3d%%' "${bar}" "${pct}"
+}
+
+
+
+# ==============================================================================
+# Системные показатели.
+#
+# Компактная визуализация вместо сырых выводов free/df/ps:
+#
+#   - бары загрузки CPU, памяти, swap;
+#   - ровная таблица файловых систем с барами;
+#   - компактные топ-5 процессов по CPU и по памяти.
+# ==============================================================================
+
+report_get_system_metrics()
+{
+    local mem_total_kb
+    local mem_avail_kb
+    local mem_used_kb
+    local mem_pct
+    local mem_used_h
+    local mem_total_h
+    local mem_avail_h
+
+    local swap_total_kb
+    local swap_free_kb
+    local swap_used_kb
+    local swap_pct
+    local swap_used_h
+    local swap_total_h
+
+    local cores
+    local load1
+    local load_pct
+
+    human_kb()
+    {
+        awk -v k="$1" 'BEGIN {
+            if (k >= 1048576) printf "%.1f GiB", k/1048576;
+            else if (k >= 1024) printf "%.1f MiB", k/1024;
+            else printf "%d KiB", k;
+        }'
+    }
 
     report_section \
-        "Использование файловых систем"
+        "Ресурсы системы"
 
+    printf '\n'
 
+    load1="н/д"
+    cores=1
+    load_pct=0
+
+    if [[ -r /proc/loadavg ]]; then
+
+        load1="$(awk '{print $1}' /proc/loadavg)"
+
+    fi
+
+    cores="$(nproc 2>/dev/null || echo 1)"
+
+    if [[ "${load1}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+
+        load_pct="$(awk -v l="${load1}" -v c="${cores}" 'BEGIN { p = int(l * 100 / c); if (p > 100) p = 100; print p }')"
+
+    fi
+
+    printf '  Загрузка CPU  %s\n' \
+        "$(report_bar "${load_pct}" 14)  (load ${load1}, яд.: ${cores})"
+
+    mem_pct=0
+    mem_used_h="н/д"
+    mem_total_h="н/д"
+    mem_avail_h="н/д"
+
+    if [[ -r /proc/meminfo ]]; then
+
+        mem_total_kb="$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)"
+        mem_avail_kb="$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)"
+
+        if [[ -z "${mem_avail_kb}" ]]; then
+
+            mem_avail_kb="$(awk '/^MemFree:/ {print $2}' /proc/meminfo)"
+
+        fi
+
+        if [[ -n "${mem_total_kb}" && -n "${mem_avail_kb}" ]]; then
+
+            mem_used_kb=$(( mem_total_kb - mem_avail_kb ))
+
+            mem_pct=$(( mem_used_kb * 100 / mem_total_kb ))
+
+            mem_used_h="$(human_kb "${mem_used_kb}")"
+            mem_total_h="$(human_kb "${mem_total_kb}")"
+            mem_avail_h="$(human_kb "${mem_avail_kb}")"
+
+        fi
+
+    fi
+
+    printf '  Память        %s\n' \
+        "$(report_bar "${mem_pct}" 14)  (${mem_used_h}/${mem_total_h}, своб. ${mem_avail_h})"
+
+    swap_pct=0
+    swap_used_h="н/д"
+    swap_total_h="н/д"
+
+    if [[ -r /proc/meminfo ]]; then
+
+        swap_total_kb="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)"
+
+        swap_free_kb="$(awk '/^SwapFree:/ {print $2}' /proc/meminfo)"
+
+        if [[ -n "${swap_total_kb}" && "${swap_total_kb}" -gt 0 ]] 2>/dev/null; then
+
+            swap_used_kb=$(( swap_total_kb - swap_free_kb ))
+
+            swap_pct=$(( swap_used_kb * 100 / swap_total_kb ))
+
+            swap_used_h="$(human_kb "${swap_used_kb}")"
+            swap_total_h="$(human_kb "${swap_total_kb}")"
+
+        fi
+
+    fi
+
+    printf '  Swap          %s\n' \
+        "$(report_bar "${swap_pct}" 14)  (${swap_used_h}/${swap_total_h})"
+
+    printf '\n'
+
+    report_section \
+        "Файловые системы"
+
+    printf '\n'
+
+    printf '  %-22s %8s %8s %8s  %s\n' \
+        "Точка монтирования" "Размер" "Занято" "Свободно" "Использование"
+
+    printf '  %-22s %8s %8s %8s  %s\n' \
+        "----------------------" "--------" "--------" "--------" "--------------"
 
     if command -v df >/dev/null 2>&1; then
 
-        df -h \
-            -x tmpfs \
-            -x devtmpfs \
-            -x squashfs \
-            2>/dev/null \
-            || printf '%s\n' "Нет данных"
+        df -P 2>/dev/null \
+        | awk '
+            function h(n) {
+                if (n >= 1048576) return sprintf("%.1fGiB", n/1048576)
+                if (n >= 1024) return sprintf("%.1fMiB", n/1024)
+                return n "KiB"
+            }
+            NR == 1 { next }
+            {
+                if (NF < 6) next
+                pct = $5
+                gsub(/%/, "", pct)
+                if (pct !~ /^[0-9]+$/) next
+                mp = $6
+                for (i = 7; i <= NF; i++) mp = mp " " $i
+                if (mp ~ /^\/(proc|sys|dev|run)(\/|$)/) next
+                fs = $1
+                if (fs ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|cgroup|cgroup2|pstore|bpf|debugfs|tracefs|securityfs|configfs|fusectl|mqueue|hugetlbfs|autofs|binfmt_misc|ramfs|overlay|squashfs|nsfs|efivarfs)/) next
+                sz = h($2); us = h($3); av = h($4)
+                bar = ""
+                fill = int(pct * 14 / 100)
+                for (i = 0; i < fill; i++) bar = bar "█"
+                for (i = fill; i < 14; i++) bar = bar "░"
+                printf "  %-22s %8s %8s %8s  [%s] %3d%%\n", mp, sz, us, av, bar, pct
+            }' \
+        || printf '%s\n' "Нет данных"
 
     else
 
@@ -278,40 +465,27 @@ report_get_system_metrics()
 
     fi
 
-
+    printf '\n'
 
     report_section \
-        "Топ процессов по CPU"
+        "Процессы (топ-5)"
 
-
+    printf '\n'
 
     if command -v ps >/dev/null 2>&1; then
 
-        ps aux \
-            --sort=-%cpu \
-            2>/dev/null \
-            | head -n 6 \
+        printf '  %s\n' "По загрузке CPU:"
+
+        ps -eo pcpu=,user=,comm= --sort=-pcpu 2>/dev/null \
+            | head -n 5 \
+            | awk '{ printf "    %5.1f%%  %-12s %s\n", $1, $2, substr($0, index($0, $3)) }' \
             || true
 
-    else
+        printf '\n  %s\n' "По потреблению памяти:"
 
-        printf '%s\n' "Утилита ps недоступна"
-
-    fi
-
-
-
-    report_section \
-        "Топ процессов по RAM"
-
-
-
-    if command -v ps >/dev/null 2>&1; then
-
-        ps aux \
-            --sort=-%mem \
-            2>/dev/null \
-            | head -n 6 \
+        ps -eo pmem=,user=,comm= --sort=-pmem 2>/dev/null \
+            | head -n 5 \
+            | awk '{ printf "    %5.1f%%  %-12s %s\n", $1, $2, substr($0, index($0, $3)) }' \
             || true
 
     else
@@ -321,9 +495,6 @@ report_get_system_metrics()
     fi
 
 }
-
-
-
 # ==============================================================================
 # Преобразование Unix timestamp в человекочитаемую дату
 # ==============================================================================

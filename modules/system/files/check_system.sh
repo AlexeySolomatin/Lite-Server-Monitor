@@ -72,9 +72,7 @@ MEMORY_WARNING="${MEMORY_WARNING:-85}"
 
 MEMORY_CRITICAL="${MEMORY_CRITICAL:-95}"
 
-DISK_WARNING="${DISK_WARNING:-85}"
 
-DISK_CRITICAL="${DISK_CRITICAL:-95}"
 
 NOTIFY_ON_WARNING="${NOTIFY_ON_WARNING:-true}"
 
@@ -158,7 +156,6 @@ MODE="${1:-check}"
 #   ALERT_MESSAGES массив текстов проблем
 #   LOAD           загрузка CPU (1 мин) или "н/д"
 #   MEMORY_USED    процент использования памяти или "н/д"
-#   DISK_USED      процент использования корневой ФС или "н/д"
 #
 
 system_collect()
@@ -277,47 +274,6 @@ system_collect()
 
 
     #
-    # 3. Проверка корневого раздела /
-    #
-
-    if command -v df >/dev/null 2>&1; then
-
-        DISK_USED=$(df -P / | awk 'NR==2 {print $5}' | tr -d '%')
-
-
-        if [[ -n "${DISK_USED}" ]]; then
-
-            if (( DISK_USED >= DISK_CRITICAL )); then
-
-                STATUS="CRITICAL"
-
-                ALERT_MESSAGES+=("Корневая ФС / заполнена критически: ${DISK_USED}% (порог: ${DISK_CRITICAL}%)")
-
-            elif (( DISK_USED >= DISK_WARNING )); then
-
-                if [[ "${STATUS}" != "CRITICAL" ]]; then
-
-                    STATUS="WARNING"
-
-                fi
-
-                ALERT_MESSAGES+=("Корневая ФС / заполнена сильно: ${DISK_USED}% (порог: ${DISK_WARNING}%)")
-
-            fi
-
-        else
-
-            DISK_USED="н/д"
-
-        fi
-
-    else
-
-        DISK_USED="н/д"
-
-    fi
-
-
     return 0
 }
 
@@ -360,7 +316,6 @@ do_status()
 
     printf '  Память       : %s\n' "${MEMORY_USED}"
 
-    printf '  Корневая ФС  : %s\n' "${DISK_USED}"
 
     printf 'Итого: %s\n' "${STATUS}"
 
@@ -392,7 +347,6 @@ do_report()
 
     printf 'Память               : %s\n' "${MEMORY_USED}"
 
-    printf 'Корневая ФС /        : %s\n' "${DISK_USED}"
 
 
     printf '\nПороги:\n'
@@ -401,7 +355,6 @@ do_report()
 
     printf '  Память             : WARNING %s%% / CRITICAL %s%%\n' "${MEMORY_WARNING}" "${MEMORY_CRITICAL}"
 
-    printf '  Корневая ФС /      : WARNING %s%% / CRITICAL %s%%\n' "${DISK_WARNING}" "${DISK_CRITICAL}"
 
 
     printf '\nОбщий статус: %s\n' "${STATUS}"
@@ -469,7 +422,6 @@ do_check()
 STATUS=${STATUS}
 LOAD=${LOAD}
 MEMORY=${MEMORY_USED}
-DISK=${DISK_USED}
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 EOF
 
